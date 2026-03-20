@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from './lib/supabase'
 
+useEffect(() => {
+  async function testConnection() {
+    const { data, error } = await supabase
+      .from('sermons')
+      .select('*')
+
+    console.log('DATA:', data)
+    console.log('ERROR:', error)
+  }
+
+  testConnection()
+}, [])
 // ─────────────────────────────────────────────
 // GLOBAL STYLES
 // ─────────────────────────────────────────────

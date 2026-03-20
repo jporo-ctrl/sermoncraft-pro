@@ -377,9 +377,6 @@ const NAV_ADMIN = [
 export default function App() {
   useEffect(() => {
   async function testConnection() {
-    const { data, error } = await supabase
-      .from('sermons')
-      .select('*')
 
     alert('DATA: ' + JSON.stringify(data) + ' | ERROR: ' + JSON.stringify(error))
   }

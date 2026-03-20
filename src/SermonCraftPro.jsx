@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "./lib/supabase";
 
 // ─────────────────────────────────────────────
 // GLOBAL STYLES
@@ -170,22 +169,6 @@ function RoleBadge({ role }) {
 // ─────────────────────────────────────────────
 // LOGIN SCREEN
 // ─────────────────────────────────────────────
-<button onClick={async () => {
-  try {
-    const { data, error } = await supabase
-      .from("sermons")
-      .select("*");
-
-    console.log("DATA:", data);
-    console.log("ERROR:", error);
-    alert("Check console");
-  } catch (e) {
-    alert("FAILED");
-    console.error(e);
-  }
-}}>
-  Test Supabase
-</button>
 function LoginScreen({ onLogin }) {
   const [tab, setTab] = useState("login"); // login | register
   const [email, setEmail] = useState("");

@@ -130,17 +130,22 @@ async function callClaude(prompt, sys, web = false) {
     ...(web && { tools: [{ type: "web_search_20250305", name: "web_search" }] }),
   };
   const res = await fetch("https://api.anthropic.com/v1/messages", {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "x-api-key":process.env.REACT_APP_ANTHROPIC_KEY,
-      "anthropic-version":"2023-06-01",
-      "anthropic-dangerous-allow-browser":"true"
-    },
-    body:JSON.stringify(body),
-  });
-  const d = await res.json();
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "x-api-key": "YOUR_API_KEY",
+    "anthropic-version": "2023-06-01"
+  },
+  body: JSON.stringify({
+    model: "claude-3-haiku-20240307",
+    max_tokens: 500,
+    messages: [
+      { role: "user", content: "Test message" }
+    ]
+  })
+});
+
+const d = await res.json();
   return d.content?.filter(b => b.type === "text").map(b => b.text).join("") || "No response.";
 }
 

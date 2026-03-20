@@ -1,22 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from './lib/supabase'
 
-useEffect(() => {
-  async function testConnection() {
-    try {
-      const { data, error } = await supabase
-        .from('sermons')
-        .select('*')
-
-      console.log('DATA:', data)
-      console.log('ERROR:', error)
-    } catch (err) {
-      console.error('SUPABASE TEST FAILED:', err)
-    }
-  }
-
-  testConnection()
-}, [])
 // ─────────────────────────────────────────────
 // GLOBAL STYLES
 // ─────────────────────────────────────────────

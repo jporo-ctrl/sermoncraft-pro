@@ -7,8 +7,7 @@ useEffect(() => {
       .from('sermons')
       .select('*')
 
-    console.log('DATA:', data)
-    console.log('ERROR:', error)
+    alert('DATA: ' + JSON.stringify(data) + ' | ERROR: ' + JSON.stringify(error))
   }
 
   testConnection()

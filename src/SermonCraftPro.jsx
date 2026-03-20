@@ -382,6 +382,17 @@ const NAV_ADMIN = [
 ];
 
 export default function App() {
+  useEffect(() => {
+  async function testConnection() {
+    const { data, error } = await supabase
+      .from('sermons')
+      .select('*')
+
+    alert('DATA: ' + JSON.stringify(data) + ' | ERROR: ' + JSON.stringify(error))
+  }
+
+  testConnection()
+}, [])
   const [session, setSession] = useState(null); // { user, church, branches, users }
   const [nav, setNav] = useState("dashboard");
   const [sermons, setSermons] = useState([]); // all sermons across church

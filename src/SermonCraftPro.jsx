@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "./lib/supabase";
 
 // ─────────────────────────────────────────────
 // GLOBAL STYLES
@@ -376,22 +375,6 @@ const NAV_ADMIN = [
 ];
 
 export default function App() {
-  useEffect(() => {
-  async function testConnection() {
-    try {
-      const { data, error } = await supabase
-        .from("sermons")
-        .select("*");
-
-      console.log("DATA:", data);
-      console.log("ERROR:", error);
-    } catch (err) {
-      console.error("SUPABASE TEST FAILED:", err);
-    }
-  }
-
-  testConnection();
-}, []);
   useEffect(() => {
   async function testConnection() {
     const { data, error } = await supabase

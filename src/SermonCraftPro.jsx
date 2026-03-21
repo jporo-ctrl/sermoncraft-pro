@@ -111,7 +111,7 @@ const SEED_USERS = [
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
-aasync function callClaude(prompt, sys, web = false) {
+async function callClaude(prompt, sys, web = false) {
   console.log("CALLCLAUDE INPUTS:", { prompt, sys, web });
 
   const res = await fetch("/api/sermon", {

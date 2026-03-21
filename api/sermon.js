@@ -1,22 +1,30 @@
-export default async function handler(req, res) {
-  if (req.method === "GET") {
-    return res.status(200).json({
-      sermon: "GET test works"
-    });
-  }
-
-if (req.method === "POST") {
+export default function handler(req, res) {
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-    const { prompt, sys, web } = body;
+    if (req.method === "GET") {
+      return res.status(200).json({
+        sermon: "GET test works"
+      });
+    }
 
-    return res.status(200).json({
-      sermon: `Backend received prompt: ${prompt || "none"} | sys: ${sys ? "yes" : "no"} | web: ${String(web)}`
+    if (req.method === "POST") {
+      const body = req.body || {};
+      const prompt =
+        typeof body === "string"
+          ? body
+          : body.prompt || "none";
+
+      return res.status(200).json({
+        sermon: `Backend received prompt: ${prompt}`
+      });
+    }
+
+    return res.status(405).json({
+      error: "Method not allowed"
     });
-  } catch (error) {
+  } catch (err) {
     return res.status(500).json({
-      error: "Server error",
-      detail: String(error)
+      error: "SERVER CRASH",
+      detail: String(err)
     });
   }
 }

@@ -123,8 +123,10 @@ async function callClaude(prompt, sys, web = false) {
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    topic: "Test topic"
-  })
+  prompt,
+  sys,
+  web
+})
 });
 
 const d = await res.json();

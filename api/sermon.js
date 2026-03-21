@@ -15,11 +15,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.ANTHROPIC_API_KEY) {
   return res.status(500).json({
     error: "Missing API key",
     envCheck: {
-      hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY
+      hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+      nodeEnv: process.env.VERCEL_ENV || "unknown"
     }
   });
 }

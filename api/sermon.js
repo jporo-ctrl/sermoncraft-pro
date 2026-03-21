@@ -5,17 +5,18 @@ export default async function handler(req, res) {
     });
   }
 
-  if (req.method === "POST") {
-    try {
-      const { prompt, sys, web } = req.body || {};
+if (req.method === "POST") {
+  try {
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+    const { prompt, sys, web } = body;
 
-      return res.status(200).json({
-        sermon: `Backend received prompt: ${prompt || "none"}`
-      });
-    } catch (error) {
-      return res.status(500).json({ error: "Server error" });
-    }
+    return res.status(200).json({
+      sermon: `Backend received prompt: ${prompt || "none"} | sys: ${sys ? "yes" : "no"} | web: ${String(web)}`
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Server error",
+      detail: String(error)
+    });
   }
-
-  return res.status(405).json({ error: "Method not allowed" });
 }

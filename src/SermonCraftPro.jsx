@@ -117,6 +117,7 @@ async function callClaude(prompt, sys, web = false) {
     messages: [{ role: "user", content: prompt }],
     ...(web && { tools: [{ type: "web_search_20250305", name: "web_search" }] }),
   };
+  console.log("CALLCLAUDE INPUTS:", { prompt, sys, web });
   const res = await fetch("/api/sermon", {
   method: "POST",
   headers: {
@@ -1147,7 +1148,14 @@ You are a Spirit-sensitive pastoral theologian — depth of a seminary professor
     setLoading(true);
     try {
       const hist = msgs.slice(-8).map(m => `${m.role === "user" ? user.name : "AI Companion"}: ${m.text}`).join("\n\n");
-      const r = await callClaude(`${hist}\n\n${user.name}: ${u}`, SYS, web);
+      const r = await callClaude({
+  system: SYS,
+  messages: [
+    ...hist, // [{role: 'user'|'assistant', content: '...'}]
+    { role: 'user', content: u }
+  ],
+  tools: web
+});
       setMsgs(p => [...p, { role: "assistant", text: r }]);
     } catch { setMsgs(p => [...p, { role: "assistant", text: "Error. Please try again." }]); }
     setLoading(false);

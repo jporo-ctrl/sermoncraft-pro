@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext, createContext } from "react";
 
 // ─────────────────────────────────────────────
 // GLOBAL STYLES
@@ -375,18 +375,7 @@ const NAV_ADMIN = [
 ];
 
 export default function App() {
-  useEffect(() => {
-  async function testConnection() {
-
-    alert('DATA: ' + JSON.stringify(data) + ' | ERROR: ' + JSON.stringify(error))
-  }
-
-  testConnection()
-}, [])
-  const [session, setSession] = useState(null); // { user, church, branches, users }
-  const [nav, setNav] = useState("dashboard");
-  const [sermons, setSermons] = useState([]); // all sermons across church
-
+  const [session, setSession] = useState(null);
   const login = (user, church, branches, users) => {
     setSession({ user, church, branches, users });
     setNav(user.role === "superadmin" ? "admin-overview" : "dashboard");
@@ -1148,7 +1137,7 @@ function AIPastor({ user, church, myBranch }) {
   const [loading, setLoading] = useState(false);
   const [web, setWeb] = useState(true);
   const ref = useRef(null);
-  useEffect(() => { ref.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
+  useEffect(()=> { ref.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
 
   const SYS = `You are an AI Pastoral Companion for ${user.name}, a ${user.role} at ${church.name}${myBranch ? `, specifically serving ${myBranch.name}` : ""}. Church: ${church.denomination} in ${church.city}. Bible: ${user.bibleVersion}. Style: ${user.preferredStyle}.
 You are a Spirit-sensitive pastoral theologian — depth of a seminary professor, heart of a shepherd. You exegete Scripture precisely, reference church history and systematic theology, search the web and examine world events through a prophetic biblical lens, and provide pastoral counsel with warmth and authority. Never compromise on biblical truth. Always cite Scripture. Respond in rich pastoral prose.`;

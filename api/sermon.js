@@ -1,8 +1,3 @@
-console.log("ENV KEYS:", Object.keys(process.env));
-console.log("ANTHROPIC KEY:", process.env.ANTHROPIC_API_KEY);
-export const config = {
-  runtime: "nodejs",
-};
 import Anthropic from "@anthropic-ai/sdk";
 
 export default async function handler(req, res) {
@@ -20,27 +15,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-    const client = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-
-    const response = await client.messages.create({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 1500,
-      system: sys || "You are a powerful sermon-generating assistant.",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-
-    const text =
-      response?.content?.[0]?.text || "No response generated";
+    const rawKey = process.env.ANTHROPIC_API_KEY;
 
     return res.status(200).json({
-      sermon: text,
+      sermon: rawKey
+        ? `KEY CHECK: present (${rawKey.slice(0, 7)})`
+        : "KEY CHECK: missing"
     });
 
   } catch (err) {

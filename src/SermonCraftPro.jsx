@@ -117,24 +117,18 @@ async function callClaude(prompt, sys, web = false) {
     messages: [{ role: "user", content: prompt }],
     ...(web && { tools: [{ type: "web_search_20250305", name: "web_search" }] }),
   };
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/sermon", {
   method: "POST",
   headers: {
-    "Content-Type": "application/json",
-    "x-api-key": "YOUR_API_KEY",
-    "anthropic-version": "2023-06-01"
+    "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    model: "claude-3-haiku-20240307",
-    max_tokens: 500,
-    messages: [
-      { role: "user", content: "Test message" }
-    ]
+    topic: "Test topic"
   })
 });
 
 const d = await res.json();
-  return d.content?.filter(b => b.type === "text").map(b => b.text).join("") || "No response.";
+return d.sermon;
 }
 
 function safeJSON(raw, fb = []) {

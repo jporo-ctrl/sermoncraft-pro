@@ -74,20 +74,20 @@ const BIBLE_VERSIONS = ["ESV","NIV","KJV","NKJV","NLT","NASB","CSB","MSG","AMP"]
 // Seed data
 const SEED_CHURCH = {
   id: "church_001",
-  name: "Calvary International Church",
+  name: "Kingdom Insights Ministries",
   denomination: "Non-denominational",
-  city: "Atlanta, GA",
+  city: "Hurst/Dallas, TX",
   logo: "✝",
   vision: "Transforming lives through the Word and Spirit — from our city to the nations.",
   plan: "enterprise",
-  bibleVersion: "ESV",
+  bibleVersion: "KJV",
   preferredStyle: "Expository",
   season: "Ordinary Time",
   sermonLength: "35 min",
   defaultAudience: "General Congregation",
   seriesName: "",
-  foundedYear: "2008",
-  website: "www.calvaryintl.org",
+  foundedYear: "2016",
+  website: "www.kim.church",
 };
 
 const SEED_BRANCHES = [
@@ -128,8 +128,7 @@ async function callClaude(prompt, sys, web = false) {
 });
 
 const d = await res.json();
-return d.sermon;
-}
+return d.sermon;}
 
 function safeJSON(raw, fb = []) {
   try {
@@ -370,6 +369,9 @@ const NAV_ADMIN = [
 
 export default function App() {
   const [session, setSession] = useState(null);
+  const [nav, setNav] = useState("dashboard");
+  const [sermons, setSermons] = useState([]);
+
   const login = (user, church, branches, users) => {
     setSession({ user, church, branches, users });
     setNav(user.role === "superadmin" ? "admin-overview" : "dashboard");

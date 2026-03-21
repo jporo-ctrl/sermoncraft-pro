@@ -111,27 +111,31 @@ const SEED_USERS = [
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
-async function callClaude(prompt, sys, web = false) {
-  const body = {
-    model: "claude-sonnet-4-20250514", max_tokens: 1000, system: sys,
-    messages: [{ role: "user", content: prompt }],
-    ...(web && { tools: [{ type: "web_search_20250305", name: "web_search" }] }),
-  };
+aasync function callClaude(prompt, sys, web = false) {
   console.log("CALLCLAUDE INPUTS:", { prompt, sys, web });
-  const res = await fetch("/api/sermon", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-  prompt,
-  sys,
-  web
-})
-});
 
-const d = await res.json();
-return d.sermon;}
+  const res = await fetch("/api/sermon", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt,
+      sys,
+      web
+    })
+  });
+
+  const d = await res.json();
+
+  console.log("CALLCLAUDE RAW RESPONSE:", d);
+
+  if (!res.ok) {
+    throw new Error(JSON.stringify(d));
+  }
+
+  return d.sermon;
+}
 
 function safeJSON(raw, fb = []) {
   try {
@@ -1359,11 +1363,31 @@ function SermonForge({ user, church, saveSermon }) {
   };
 
   const forge = async (id) => {
-    setLoading(id);
-    try { const r = await callClaude(PROMPTS[id], SYS, form.web); setResults(p => ({ ...p, [id]: r })); }
-    catch { setResults(p => ({ ...p, [id]: "Error. Please try again." })); }
-    setLoading(null);
-  };
+  setLoading(id);
+
+  try {
+    console.log("FORGE REQUEST:", {
+      id,
+      prompt: PROMPTS[id],
+      sys: SYS,
+      web: form.web
+    });
+
+    const r = await callClaude(PROMPTS[id], SYS, form.web);
+
+    console.log("FORGE RESPONSE:", r);
+
+    setResults((p) => ({ ...p, [id]: r }));
+  } catch (err) {
+    console.error("FORGE ERROR:", err);
+    setResults((p) => ({
+      ...p,
+      [id]: `FORGE ERROR: ${String(err)}`
+    }));
+  }
+
+  setLoading(null);
+};
 
   return (
     <div className="fu" style={{ display: "grid", gridTemplateColumns: "272px 1fr", gap: 16, alignItems: "start" }}>

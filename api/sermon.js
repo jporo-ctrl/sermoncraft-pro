@@ -20,18 +20,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-  return res.status(500).json({
-    error: "Missing API key",
-    envCheck: {
-      hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
-      nodeEnv: process.env.VERCEL_ENV || "unknown"
-    }
-  });
-}
-
     const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+    apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
     const response = await client.messages.create({

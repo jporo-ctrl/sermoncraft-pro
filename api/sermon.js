@@ -1,30 +1,53 @@
-export default function handler(req, res) {
+import Anthropic from "@anthropic-ai/sdk";
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
   try {
-    if (req.method === "GET") {
-      return res.status(200).json({
-        sermon: "GET test works"
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+
+    const { prompt, sys } = body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: "Missing prompt" });
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({
+        error: "Missing API key"
       });
     }
 
-    if (req.method === "POST") {
-      const body = req.body || {};
-      const prompt =
-        typeof body === "string"
-          ? body
-          : body.prompt || "none";
-
-      return res.status(200).json({
-        sermon: `Backend received prompt: ${prompt}`
-      });
-    }
-
-    return res.status(405).json({
-      error: "Method not allowed"
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
+
+    const response = await client.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 1500,
+      system: sys || "You are a powerful sermon-generating assistant.",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const text =
+      response?.content?.[0]?.text || "No response generated";
+
+    return res.status(200).json({
+      sermon: text,
+    });
+
   } catch (err) {
     return res.status(500).json({
-      error: "SERVER CRASH",
-      detail: String(err)
+      error: "AI request failed",
+      detail: String(err),
     });
   }
 }

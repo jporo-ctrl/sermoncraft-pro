@@ -1,3 +1,8 @@
+console.log("ENV KEYS:", Object.keys(process.env));
+console.log("ANTHROPIC KEY:", process.env.ANTHROPIC_API_KEY);
+export const config = {
+  runtime: "nodejs",
+};
 import Anthropic from "@anthropic-ai/sdk";
 
 export default async function handler(req, res) {

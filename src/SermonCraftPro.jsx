@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useContext, createContext } from "react";
+import React, { useState } from "react";
 
 // ─────────────────────────────────────────────
 // GLOBAL STYLES
@@ -111,30 +111,41 @@ const SEED_USERS = [
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
-async function callClaude(prompt, sys, web = false) {
-  console.log("CALLCLAUDE INPUTS:", { prompt, sys, web });
-
-  const res = await fetch("/api/sermon", {
+async function generateSermon({ prompt, sys, mode }) {
+  const response = await fetch("/api/sermon", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       prompt,
       sys,
-      web
-    })
+      mode,
+    }),
   });
 
-  const d = await res.json();
-
-  console.log("CALLCLAUDE RAW RESPONSE:", d);
-
-  if (!res.ok) {
-    throw new Error(JSON.stringify(d));
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Request failed");
   }
 
-  return d.sermon;
+  if (!response.body) {
+    throw new Error("No response body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    result += chunk;
+
+    setSermon(result); // or whatever your state setter is
+  }
 }
 
 function safeJSON(raw, fb = []) {
@@ -378,11 +389,107 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [nav, setNav] = useState("dashboard");
   const [sermons, setSermons] = useState([]);
+  const [prompt, setPrompt] = useState("");
+const [sermon, setSermon] = useState("");
+const [loading, setLoading] = useState(false);
+const [mode, setMode] = useState("fast");
+const [error, setError] = useState("");
+async function generateSermon() {
+  try {
+    setLoading(true);
+    setSermon("");
+
+    const response = await fetch("/api/sermon", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    prompt: u,
+    sys: SYS,
+    mode,
+  }),
+});
+
+if (!response.ok) {
+  const errText = await response.text();
+  throw new Error(errText || "Request failed");
+}
+
+if (!response.body) {
+  throw new Error("No response body");
+}
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+let result = "";
+
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+
+  const chunk = decoder.decode(value, { stream: true });
+  result += chunk;
+
+  setSermon(result);
+}
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+}
 
   const login = (user, church, branches, users) => {
     setSession({ user, church, branches, users });
     setNav(user.role === "superadmin" ? "admin-overview" : "dashboard");
   };
+
+  async function generateSermon() {
+  try {
+    setLoading(true);
+    setError("");
+    setSermon("");
+
+    const response = await fetch("/api/sermon", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt,
+        sys: "You are a powerful sermon-generating assistant.",
+        mode,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || "Request failed");
+    }
+
+    if (!response.body) {
+      throw new Error("No response body");
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let result = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      result += chunk;
+      setSermon(result);
+    }
+  } catch (err) {
+    setError(String(err.message || err));
+  } finally {
+    setLoading(false);
+  }
+}
 
   const logout = () => { setSession(null); setNav("dashboard"); };
 
@@ -1074,6 +1181,52 @@ function PastorDashboard({ user, church, myBranch, mySermons, setNav }) {
     { i: "🖼", l: "Illustrations", s: "Stories & cultural bridges", n: "illustrations", c: "var(--purple)" },
     { i: "📅", l: "Series Planner", s: "Plan your calendar", n: "calendar", c: "#f4d35e" },
   ];
+  <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
+  <h2>Sermon Generator</h2>
+
+  <textarea
+    value={prompt}
+    onChange={(e) => setPrompt(e.target.value)}
+    placeholder="Enter sermon topic or instruction..."
+    style={{
+      width: "100%",
+      minHeight: 140,
+      padding: 12,
+      fontSize: 16,
+      marginBottom: 12
+    }}
+  />
+
+  <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+    <select value={mode} onChange={(e) => setMode(e.target.value)}>
+      <option value="fast">Fast</option>
+      <option value="deep">Deep</option>
+    </select>
+
+    <button onClick={generateSermon} disabled={loading || !prompt.trim()}>
+      {loading ? "Generating..." : "Generate Sermon"}
+    </button>
+  </div>
+
+  {error && (
+    <div style={{ color: "red", marginBottom: 12 }}>
+      {error}
+    </div>
+  )}
+
+  <div
+    style={{
+      whiteSpace: "pre-wrap",
+      border: "1px solid #ddd",
+      borderRadius: 8,
+      padding: 16,
+      minHeight: 200,
+      background: "#fff"
+    }}
+  >
+    {sermon || "Your sermon will appear here..."}
+  </div>
+</div>
   return (
     <div className="fu">
       <div className="bg" style={{ padding: "26px 32px", marginBottom: 18, background: "linear-gradient(135deg,rgba(201,168,76,0.1) 0%,rgba(10,8,18,0.95) 65%)", borderColor: "rgba(201,168,76,0.38)", position: "relative", overflow: "hidden" }}>
@@ -1151,15 +1304,78 @@ You are a Spirit-sensitive pastoral theologian — depth of a seminary professor
     setMsgs(p => [...p, { role: "user", text: u }]);
     setLoading(true);
     try {
-      const hist = msgs.slice(-8).map(m => `${m.role === "user" ? user.name : "AI Companion"}: ${m.text}`).join("\n\n");
-      const r = await callClaude({
+      const hist = msgs
+  .slice(-8)
+  .map((m) => `${m.role === "user" ? user.name : "AI Companion"}: ${m.text}`)
+  .join("\n\n");
+
+const r = await callClaude({
   system: SYS,
   messages: [
-    ...hist, // [{role: 'user'|'assistant', content: '...'}]
-    { role: 'user', content: u }
+    { role: "user", content: `${hist}\n\nUser: ${u}` }
   ],
   tools: web
 });
+      async function callClaude(promptOrOptions, systemPrompt = "", useWeb = false) {
+  let prompt = "";
+  let mode = "deep";
+
+  if (typeof promptOrOptions === "string") {
+    prompt = promptOrOptions;
+    mode = useWeb ? "deep" : "fast";
+  } else if (promptOrOptions && typeof promptOrOptions === "object") {
+    if (Array.isArray(promptOrOptions.messages)) {
+      prompt = promptOrOptions.messages
+        .map((m) =>
+          typeof m === "string"
+            ? m
+            : `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content || m.text || ""}`
+        )
+        .join("\n\n");
+    } else {
+      prompt = promptOrOptions.prompt || "";
+    }
+
+    systemPrompt = promptOrOptions.system || systemPrompt || "";
+    mode = promptOrOptions.tools ? "deep" : "fast";
+  }
+
+  const response = await fetch("/api/sermon", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      sys: systemPrompt || "You are a powerful sermon-generating assistant.",
+      mode,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Request failed");
+  }
+
+  if (!response.body) {
+    throw new Error("No response body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    result += chunk;
+    if (typeof setSermon === "function") setSermon(result);
+  }
+
+  return result;
+}
       setMsgs(p => [...p, { role: "assistant", text: r }]);
     } catch { setMsgs(p => [...p, { role: "assistant", text: "Error. Please try again." }]); }
     setLoading(false);
@@ -1479,7 +1695,7 @@ function WordStudy({ user, church }) {
     setLoading(true); setResult("");
     const SYS = "You are a world-class biblical linguist with mastery of Koine Greek, Biblical Hebrew, and Aramaic. Provide thorough, academically rigorous word studies that are pastorally rich and immediately useful for preaching.";
     const p = `Comprehensive word study on "${word}"${lang !== "auto" ? ` (${lang})` : ""}${passage ? ` in ${passage}` : ""} for a ${church.denomination} pastor using ${user.bibleVersion}.\n\nCover: original word, transliteration, pronunciation, Strong's number, root/etymology, full lexical range, key occurrences across Scripture, theological significance, grammatical analysis${passage ? ` in ${passage}` : ""}, how leading translations render it, insights from Calvin/Luther/Chrysostom/Wright, and how this word study transforms the sermon. Write in full academic-pastoral prose.`;
-    try { const r = await callClaude(p, SYS); setResult(r); }
+    try { const r = await callClaude(p, SYS); setResult(String(r)); }
     catch { setResult("Error. Please try again."); }
     setLoading(false);
   };
@@ -1549,6 +1765,29 @@ function Illustrations({ user, church }) {
     } catch { setErr("Error. Try again."); }
     setLoading(false);
   };
+  async function callClaudeJSON(prompt, systemPrompt = "", useWeb = false) {
+  const mode = useWeb ? "deep" : "fast";
+
+  const response = await fetch("/api/forge-json", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      sys: systemPrompt || "You are a powerful AI assistant.",
+      mode,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Request failed");
+  }
+
+  const data = await response.json();
+  return data.result || "";
+}
 
   return (
     <div className="fu">
@@ -1667,7 +1906,7 @@ function SeriesPlanner({ user, church }) {
     const SYS = "You are a church programming strategist. Create detailed preaching series plans. Return ONLY valid raw JSON, no markdown.";
     const p = `${weeks}-week series${name ? ` titled "${name}"` : ""} for ${church.denomination} church. Season:${church.season}. Style:${user.preferredStyle}. Start:${startDate || "next Sunday"}. Search web for cultural conversations to speak into.\n\nReturn ONLY raw JSON: {seriesTitle,seriesTagline,overview,weeks:[{weekNumber,date,title,passage,bigIdea,keyTheme,culturalConnection,worshipSuggestion}]}`;
     try {
-      const r = await callClaude(p, SYS, true);
+      const r = await callClaudeJSON(p, SYS, true);
       const t = safeJSON(r, {});
       if (t.seriesTitle) setPlan(t); else setPlan({ seriesTitle: "Parse error", seriesTagline: "Try again", overview: "", weeks: [] });
     } catch { setPlan({ seriesTitle: "Error", seriesTagline: "Try again", overview: "", weeks: [] }); }

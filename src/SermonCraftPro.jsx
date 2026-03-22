@@ -1,4 +1,141 @@
 import React, { useState } from "react";
+async function callClaude(promptOrOptions, systemPrompt = "", useWeb = false) {
+  let prompt = "";
+  let mode = "deep";
+
+  if (typeof promptOrOptions === "string") {
+    prompt = promptOrOptions;
+    mode = useWeb ? "deep" : "fast";
+  } else if (promptOrOptions && typeof promptOrOptions === "object") {
+    if (Array.isArray(promptOrOptions.messages)) {
+      prompt = promptOrOptions.messages
+        .map((m) =>
+          typeof m === "string"
+            ? m
+            : `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content || m.text || ""}`
+        )
+        .join("\n\n");
+    } else {
+      prompt = promptOrOptions.prompt || "";
+    }
+
+    systemPrompt = promptOrOptions.system || systemPrompt || "";
+    mode = promptOrOptions.tools ? "deep" : "fast";
+  }
+
+  const response = await fetch("/api/sermon", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      sys: systemPrompt || "You are a powerful sermon-generating assistant.",
+      mode,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Request failed");
+  }
+
+  if (!response.body) {
+    throw new Error("No response body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    result += chunk;
+  }
+
+  return result;
+}
+
+async function callClaudeJSON(prompt, systemPrompt = "", useWeb = false) {
+  const mode = useWeb ? "deep" : "fast";
+
+  const response = await fetch("/api/forge-json", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      sys: systemPrompt || "You are a powerful AI assistant.",
+      mode,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Request failed");
+  }
+
+  const data = await response.json();
+  return data.result || "";
+}
+  return (
+    <div className="fu">
+      <div className="bg" style={{ padding: "22px 26px", marginBottom: 18 }}>
+        <div className="cin" style={{ fontSize: 11, color: "var(--gold)", letterSpacing: ".2em", marginBottom: 14 }}>📅 PREACHING SERIES PLANNER</div>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 11, marginBottom: 13 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 9, color: "var(--text-faint)", letterSpacing: ".15em", marginBottom: 4 }}>SERIES NAME (OPTIONAL)</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Anchored, Rooted, The Beatitudes…" style={{ width: "100%", padding: "9px 12px" }} />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 9, color: "var(--text-faint)", letterSpacing: ".15em", marginBottom: 4 }}>WEEKS</label>
+            <select value={weeks} onChange={e => setWeeks(Number(e.target.value))} style={{ width: "100%", padding: "8px 11px" }}>
+              {[2, 3, 4, 5, 6, 8, 10, 12].map(n => <option key={n}>{n}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 9, color: "var(--text-faint)", letterSpacing: ".15em", marginBottom: 4 }}>START DATE</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ width: "100%", padding: "8px 11px" }} />
+          </div>
+        </div>
+        <button className="btn" onClick={gen} disabled={loading} style={{ padding: "11px 30px", fontSize: 13 }}>
+          {loading ? "⟳  Planning…" : "📅  Generate Series Plan"}
+        </button>
+        {loading && <div className="prog" style={{ marginTop: 9 }} />}
+      </div>
+      {plan && (
+        <div className="fu">
+          <div className="bg" style={{ padding: "22px 28px", marginBottom: 14, background: "linear-gradient(135deg,rgba(201,168,76,0.09) 0%,rgba(10,8,18,0.95) 70%)", borderColor: "rgba(201,168,76,0.38)" }}>
+            <div className="cin" style={{ fontSize: 17, color: "var(--gold)", marginBottom: 4 }}>{plan.seriesTitle}</div>
+            <div className="cor" style={{ fontSize: 16, color: "var(--text-dim)", fontStyle: "italic", marginBottom: 10 }}>{plan.seriesTagline}</div>
+            <div className="prose" style={{ fontSize: 13 }}>{plan.overview}</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+            {(plan.weeks || []).map((w, i) => (
+              <div key={i} className="bg" style={{ padding: "16px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 7 }}>
+                  <div>
+                    <div className="cin" style={{ fontSize: 9, color: "var(--gold-dim)", letterSpacing: ".13em", marginBottom: 2 }}>WEEK {w.weekNumber}{w.date ? ` · ${w.date}` : ""}</div>
+                    <div className="cin" style={{ fontSize: 12, color: "var(--gold-light)", lineHeight: 1.3 }}>{w.title}</div>
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--teal)", flexShrink: 0, marginLeft: 7 }}>{w.passage}</div>
+                </div>
+                <div className="cor" style={{ fontSize: 14, color: "var(--text-dim)", fontStyle: "italic", marginBottom: 8 }}>"{w.bigIdea}"</div>
+                {w.culturalConnection && <div style={{ fontSize: 11, color: "var(--text-faint)", padding: "6px 9px", background: "rgba(58,140,168,0.07)", borderRadius: 6, borderLeft: "2px solid var(--teal)", marginBottom: 6 }}>🌐 {w.culturalConnection}</div>}
+                {w.worshipSuggestion && <div style={{ fontSize: 10, color: "var(--text-faint)" }}>🎵 {w.worshipSuggestion}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 // ─────────────────────────────────────────────
 // GLOBAL STYLES
@@ -1881,139 +2018,3 @@ function SeriesPlanner({ user, church }) {
     } catch { setPlan({ seriesTitle: "Error", seriesTagline: "Try again", overview: "", weeks: [] }); }
     setLoading(false);
   };
-async function callClaude(promptOrOptions, systemPrompt = "", useWeb = false) {
-  let prompt = "";
-  let mode = "deep";
-
-  if (typeof promptOrOptions === "string") {
-    prompt = promptOrOptions;
-    mode = useWeb ? "deep" : "fast";
-  } else if (promptOrOptions && typeof promptOrOptions === "object") {
-    if (Array.isArray(promptOrOptions.messages)) {
-      prompt = promptOrOptions.messages
-        .map((m) =>
-          typeof m === "string"
-            ? m
-            : `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content || m.text || ""}`
-        )
-        .join("\n\n");
-    } else {
-      prompt = promptOrOptions.prompt || "";
-    }
-
-    systemPrompt = promptOrOptions.system || systemPrompt || "";
-    mode = promptOrOptions.tools ? "deep" : "fast";
-  }
-
-  const response = await fetch("/api/sermon", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt,
-      sys: systemPrompt || "You are a powerful sermon-generating assistant.",
-      mode,
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(errText || "Request failed");
-  }
-
-  if (!response.body) {
-    throw new Error("No response body");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let result = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    const chunk = decoder.decode(value, { stream: true });
-    result += chunk;
-  }
-
-  return result;
-}
-
-async function callClaudeJSON(prompt, systemPrompt = "", useWeb = false) {
-  const mode = useWeb ? "deep" : "fast";
-
-  const response = await fetch("/api/forge-json", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt,
-      sys: systemPrompt || "You are a powerful AI assistant.",
-      mode,
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(errText || "Request failed");
-  }
-
-  const data = await response.json();
-  return data.result || "";
-}
-  return (
-    <div className="fu">
-      <div className="bg" style={{ padding: "22px 26px", marginBottom: 18 }}>
-        <div className="cin" style={{ fontSize: 11, color: "var(--gold)", letterSpacing: ".2em", marginBottom: 14 }}>📅 PREACHING SERIES PLANNER</div>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 11, marginBottom: 13 }}>
-          <div>
-            <label style={{ display: "block", fontSize: 9, color: "var(--text-faint)", letterSpacing: ".15em", marginBottom: 4 }}>SERIES NAME (OPTIONAL)</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Anchored, Rooted, The Beatitudes…" style={{ width: "100%", padding: "9px 12px" }} />
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 9, color: "var(--text-faint)", letterSpacing: ".15em", marginBottom: 4 }}>WEEKS</label>
-            <select value={weeks} onChange={e => setWeeks(Number(e.target.value))} style={{ width: "100%", padding: "8px 11px" }}>
-              {[2, 3, 4, 5, 6, 8, 10, 12].map(n => <option key={n}>{n}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display: "block", fontSize: 9, color: "var(--text-faint)", letterSpacing: ".15em", marginBottom: 4 }}>START DATE</label>
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ width: "100%", padding: "8px 11px" }} />
-          </div>
-        </div>
-        <button className="btn" onClick={gen} disabled={loading} style={{ padding: "11px 30px", fontSize: 13 }}>
-          {loading ? "⟳  Planning…" : "📅  Generate Series Plan"}
-        </button>
-        {loading && <div className="prog" style={{ marginTop: 9 }} />}
-      </div>
-      {plan && (
-        <div className="fu">
-          <div className="bg" style={{ padding: "22px 28px", marginBottom: 14, background: "linear-gradient(135deg,rgba(201,168,76,0.09) 0%,rgba(10,8,18,0.95) 70%)", borderColor: "rgba(201,168,76,0.38)" }}>
-            <div className="cin" style={{ fontSize: 17, color: "var(--gold)", marginBottom: 4 }}>{plan.seriesTitle}</div>
-            <div className="cor" style={{ fontSize: 16, color: "var(--text-dim)", fontStyle: "italic", marginBottom: 10 }}>{plan.seriesTagline}</div>
-            <div className="prose" style={{ fontSize: 13 }}>{plan.overview}</div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
-            {(plan.weeks || []).map((w, i) => (
-              <div key={i} className="bg" style={{ padding: "16px 20px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 7 }}>
-                  <div>
-                    <div className="cin" style={{ fontSize: 9, color: "var(--gold-dim)", letterSpacing: ".13em", marginBottom: 2 }}>WEEK {w.weekNumber}{w.date ? ` · ${w.date}` : ""}</div>
-                    <div className="cin" style={{ fontSize: 12, color: "var(--gold-light)", lineHeight: 1.3 }}>{w.title}</div>
-                  </div>
-                  <div style={{ fontSize: 10, color: "var(--teal)", flexShrink: 0, marginLeft: 7 }}>{w.passage}</div>
-                </div>
-                <div className="cor" style={{ fontSize: 14, color: "var(--text-dim)", fontStyle: "italic", marginBottom: 8 }}>"{w.bigIdea}"</div>
-                {w.culturalConnection && <div style={{ fontSize: 11, color: "var(--text-faint)", padding: "6px 9px", background: "rgba(58,140,168,0.07)", borderRadius: 6, borderLeft: "2px solid var(--teal)", marginBottom: 6 }}>🌐 {w.culturalConnection}</div>}
-                {w.worshipSuggestion && <div style={{ fontSize: 10, color: "var(--text-faint)" }}>🎵 {w.worshipSuggestion}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

@@ -1288,100 +1288,65 @@ function PastorDashboard({ user, church, myBranch, mySermons, setNav }) {
 // AI PASTOR
 // ═══════════════════════════════════════════
 function AIPastor({ user, church, myBranch }) {
-  const [msgs, setMsgs] = useState([{ role: "assistant", text: `Peace be with you, ${user.name.split(" ")[0]}.\n\nI am your AI Pastoral Companion — theologian, exegete, and prophetic cultural analyst. I draw from the full counsel of God's Word and examine world events so you can preach with relevance and authority.\n\nAsk me anything: theological questions, pastoral dilemmas, current events through a biblical lens, sermon direction, or cultural commentary.\n\nWith Live Web Research enabled, I search the internet in real time and bring those insights through Scripture.\n\nHow may I serve you today?` }]);
+  const [msgs, setMsgs] = useState([
+    {
+      role: "assistant",
+      text: `Peace be with you, ${user.name.split(" ")[0]}.\n\nI am your AI Pastoral Companion — theologian, exegete, and prophetic cultural analyst. I draw from the full counsel of God's Word and examine world events so you can preach with relevance and authority.\n\nAsk me anything: theological questions, pastoral dilemmas, current events through a biblical lens, sermon direction, or cultural commentary.\n\nWith Live Web Research enabled, I search the internet in real time and bring those insights through Scripture.\n\nHow may I serve you today?`
+    }
+  ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [web, setWeb] = useState(true);
   const ref = useRef(null);
-  useEffect(()=> { ref.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
+
+  useEffect(() => {
+    ref.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs, loading]);
 
   const SYS = `You are an AI Pastoral Companion for ${user.name}, a ${user.role} at ${church.name}${myBranch ? `, specifically serving ${myBranch.name}` : ""}. Church: ${church.denomination} in ${church.city}. Bible: ${user.bibleVersion}. Style: ${user.preferredStyle}.
 You are a Spirit-sensitive pastoral theologian — depth of a seminary professor, heart of a shepherd. You exegete Scripture precisely, reference church history and systematic theology, search the web and examine world events through a prophetic biblical lens, and provide pastoral counsel with warmth and authority. Never compromise on biblical truth. Always cite Scripture. Respond in rich pastoral prose.`;
 
   const send = async () => {
     if (!input.trim() || loading) return;
-    const u = input.trim(); setInput("");
-    setMsgs(p => [...p, { role: "user", text: u }]);
+
+    const u = input.trim();
+    setInput("");
+    setMsgs((p) => [...p, { role: "user", text: u }]);
     setLoading(true);
+
     try {
       const hist = msgs
-  .slice(-8)
-  .map((m) => `${m.role === "user" ? user.name : "AI Companion"}: ${m.text}`)
-  .join("\n\n");
-
-const r = await callClaude({
-  system: SYS,
-  messages: [
-    { role: "user", content: `${hist}\n\nUser: ${u}` }
-  ],
-  tools: web
-});
-      async function callClaude(promptOrOptions, systemPrompt = "", useWeb = false) {
-  let prompt = "";
-  let mode = "deep";
-
-  if (typeof promptOrOptions === "string") {
-    prompt = promptOrOptions;
-    mode = useWeb ? "deep" : "fast";
-  } else if (promptOrOptions && typeof promptOrOptions === "object") {
-    if (Array.isArray(promptOrOptions.messages)) {
-      prompt = promptOrOptions.messages
-        .map((m) =>
-          typeof m === "string"
-            ? m
-            : `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content || m.text || ""}`
-        )
+        .slice(-8)
+        .map((m) => `${m.role === "user" ? user.name : "AI Companion"}: ${m.text}`)
         .join("\n\n");
-    } else {
-      prompt = promptOrOptions.prompt || "";
+
+      const r = await callClaude(
+        {
+          system: SYS,
+          messages: [
+            { role: "user", content: `${hist}\n\nUser: ${u}` }
+          ],
+          tools: web ? ["web"] : []
+        },
+        SYS,
+        web
+      );
+
+      setMsgs((p) => [...p, { role: "assistant", text: r }]);
+    } catch (err) {
+      console.error(err);
+      setMsgs((p) => [...p, { role: "assistant", text: "Error. Try again." }]);
+    } finally {
+      setLoading(false);
     }
-
-    systemPrompt = promptOrOptions.system || systemPrompt || "";
-    mode = promptOrOptions.tools ? "deep" : "fast";
-  }
-
-  const response = await fetch("/api/sermon", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt,
-      sys: systemPrompt || "You are a powerful sermon-generating assistant.",
-      mode,
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(errText || "Request failed");
-  }
-
-  if (!response.body) {
-    throw new Error("No response body");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let result = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    const chunk = decoder.decode(value, { stream: true });
-    result += chunk;
-    if (typeof setSermon === "function") setSermon(result);
-  }
-
-  return result;
-}
-      setMsgs(p => [...p, { role: "assistant", text: r }]);
-    } catch { setMsgs(p => [...p, { role: "assistant", text: "Error. Please try again." }]); }
-    setLoading(false);
   };
 
-  const suggestions = ["What does Scripture say about anxiety and our current mental health crisis?", "Give me 3 sermon angles on the resurrection for a post-modern audience", "Search the web: what world events should I address from the pulpit this week?", "How do I preach the doctrine of election pastorally?"];
+  const suggestions = [
+    "What does Scripture say about anxiety and our current mental health crisis?",
+    "Give me 3 sermon angles on the resurrection for a post-modern audience",
+    "Search the web: what world events should I address from the pulpit this week?",
+    "How do I preach the doctrine of election pastorally?"
+  ];
 
   return (
     <div className="fu" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 145px)" }}>
@@ -1395,12 +1360,13 @@ const r = await callClaude({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 11, color: "var(--text-dim)" }}>Live Web</span>
-          <div onClick={() => setWeb(v => !v)} style={{ width: 38, height: 20, borderRadius: 10, cursor: "pointer", background: web ? "var(--gold)" : "rgba(255,255,255,0.1)", position: "relative", transition: "background .3s" }}>
+          <div onClick={() => setWeb((v) => !v)} style={{ width: 38, height: 20, borderRadius: 10, cursor: "pointer", background: web ? "var(--gold)" : "rgba(255,255,255,0.1)", position: "relative", transition: "background .3s" }}>
             <div style={{ position: "absolute", top: 3, left: web ? 18 : 3, width: 13, height: 13, borderRadius: "50%", background: web ? "#0B0A0F" : "var(--text-faint)", transition: "left .3s" }} />
           </div>
           <span className="tag" style={{ background: web ? "rgba(201,168,76,0.1)" : "rgba(255,255,255,0.05)", color: web ? "var(--gold)" : "var(--text-faint)", border: "1px solid var(--border)" }}>{web ? "🌐 LIVE" : "📖 OFFLINE"}</span>
         </div>
       </div>
+
       <div className="bg" style={{ flex: 1, overflowY: "auto", padding: "20px 24px", marginBottom: 11 }}>
         {msgs.map((m, i) => (
           <div key={i} style={{ marginBottom: 22, display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -1408,31 +1374,57 @@ const r = await callClaude({
               {m.role === "assistant" ? "✝" : user.avatar}
             </div>
             <div style={{ flex: 1 }}>
-              <div className="cin" style={{ fontSize: 9, color: m.role === "assistant" ? "var(--gold)" : "var(--text-dim)", letterSpacing: ".15em", marginBottom: 5 }}>{m.role === "assistant" ? "AI PASTORAL COMPANION" : user.name.toUpperCase()}</div>
+              <div className="cin" style={{ fontSize: 9, color: m.role === "assistant" ? "var(--gold)" : "var(--text-dim)", letterSpacing: ".15em", marginBottom: 5 }}>
+                {m.role === "assistant" ? "AI PASTORAL COMPANION" : user.name.toUpperCase()}
+              </div>
               <div className="prose" style={{ fontSize: 14 }}>{m.text}</div>
             </div>
           </div>
         ))}
+
         {loading && (
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg,var(--gold-dim),#1a1020)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, border: "1px solid var(--border)", flexShrink: 0 }}>✝</div>
             <div style={{ paddingTop: 4 }}>
               <div className="cin" style={{ fontSize: 9, color: "var(--gold)", letterSpacing: ".15em", marginBottom: 7 }}>AI PASTORAL COMPANION</div>
               <div className="prog" style={{ width: 180 }} />
-              <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6, fontStyle: "italic" }}>{web ? "Searching Scripture and the world…" : "Searching the Scriptures…"}</div>
+              <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 6, fontStyle: "italic" }}>
+                {web ? "Searching Scripture and the world…" : "Searching the Scriptures…"}
+              </div>
             </div>
           </div>
         )}
+
         <div ref={ref} />
       </div>
+
       {msgs.length <= 1 && (
         <div style={{ display: "flex", gap: 7, marginBottom: 9, flexWrap: "wrap", flexShrink: 0 }}>
-          {suggestions.map(s => <button key={s} onClick={() => setInput(s)} className="ghost" style={{ padding: "6px 11px", fontSize: 10 }}>{s.length > 52 ? s.slice(0, 49) + "…" : s}</button>)}
+          {suggestions.map((s) => (
+            <button key={s} onClick={() => setInput(s)} className="ghost" style={{ padding: "6px 11px", fontSize: 10 }}>
+              {s.length > 52 ? s.slice(0, 49) + "…" : s}
+            </button>
+          ))}
         </div>
       )}
+
       <div className="bg" style={{ padding: "11px 13px", display: "flex", gap: 9, alignItems: "flex-end", flexShrink: 0 }}>
-        <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Ask about theology, current events, pastoral challenges… (Enter to send)" rows={2} style={{ flex: 1, padding: "9px 11px", resize: "none", fontSize: 14, lineHeight: 1.6 }} />
-        <button className="btn" onClick={send} disabled={loading || !input.trim()} style={{ padding: "11px 20px", fontSize: 12 }}>Send ↑</button>
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          placeholder="Ask about theology, current events, pastoral challenges… (Enter to send)"
+          rows={2}
+          style={{ flex: 1, padding: "9px 11px", resize: "none", fontSize: 14, lineHeight: 1.6 }}
+        />
+        <button className="btn" onClick={send} disabled={loading || !input.trim()} style={{ padding: "11px 20px", fontSize: 12 }}>
+          Send ↑
+        </button>
       </div>
     </div>
   );
@@ -1459,7 +1451,7 @@ function TopicEngine({ user, church }) {
       ? `Generate ${count} sermon topics for a ${church.denomination} church. Season:${season}. Audience:${audience}. Style:${user.preferredStyle}. Search web for current world events the church should address.\n\nReturn ONLY raw JSON array. Each: title,passage,bigIdea,hook,relevance,culturalMoment,keywords`
       : `Generate ${count} sermon topics on "${theme}" for a ${church.denomination} church. Season:${season}. Audience:${audience}.\n\nReturn ONLY raw JSON array. Each: title,passage,bigIdea,hook,relevance,culturalMoment,keywords`;
     try {
-      const r = await callClaude(p, SYS, true);
+      const r = await callClaudeJSON(p, SYS, true);
       const t = safeJSON(r, []);
       if (t.length) setTopics(t); else setErr("Could not parse. Please try again.");
     } catch { setErr("Error. Please try again."); }
@@ -1759,35 +1751,12 @@ function Illustrations({ user, church }) {
     const SYS = "You are a master storyteller and homiletician. Generate vivid, preachable illustrations. Return ONLY a raw JSON array, no markdown, no backticks.";
     const p = `Generate 6 sermon illustrations for theme:"${topic}". ${type !== "All Types" ? `Type:${type}.` : ""} Church:${church.denomination}. Search web for a current news story for at least one.\n\nReturn ONLY raw JSON array. Each: type, title, content(200-250 words preaching prose), bridge(one sentence to biblical truth), source`;
     try {
-      const r = await callClaude(p, SYS, true);
+      const r = await callClaudeJSON(p, SYS, true);
       const t = safeJSON(r, []);
       if (t.length) setResults(t); else setErr("Could not generate. Try again.");
     } catch { setErr("Error. Try again."); }
     setLoading(false);
   };
-  async function callClaudeJSON(prompt, systemPrompt = "", useWeb = false) {
-  const mode = useWeb ? "deep" : "fast";
-
-  const response = await fetch("/api/forge-json", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      prompt,
-      sys: systemPrompt || "You are a powerful AI assistant.",
-      mode,
-    }),
-  });
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(errText || "Request failed");
-  }
-
-  const data = await response.json();
-  return data.result || "";
-}
 
   return (
     <div className="fu">
@@ -1912,7 +1881,89 @@ function SeriesPlanner({ user, church }) {
     } catch { setPlan({ seriesTitle: "Error", seriesTagline: "Try again", overview: "", weeks: [] }); }
     setLoading(false);
   };
+async function callClaude(promptOrOptions, systemPrompt = "", useWeb = false) {
+  let prompt = "";
+  let mode = "deep";
 
+  if (typeof promptOrOptions === "string") {
+    prompt = promptOrOptions;
+    mode = useWeb ? "deep" : "fast";
+  } else if (promptOrOptions && typeof promptOrOptions === "object") {
+    if (Array.isArray(promptOrOptions.messages)) {
+      prompt = promptOrOptions.messages
+        .map((m) =>
+          typeof m === "string"
+            ? m
+            : `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content || m.text || ""}`
+        )
+        .join("\n\n");
+    } else {
+      prompt = promptOrOptions.prompt || "";
+    }
+
+    systemPrompt = promptOrOptions.system || systemPrompt || "";
+    mode = promptOrOptions.tools ? "deep" : "fast";
+  }
+
+  const response = await fetch("/api/sermon", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      sys: systemPrompt || "You are a powerful sermon-generating assistant.",
+      mode,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Request failed");
+  }
+
+  if (!response.body) {
+    throw new Error("No response body");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value, { stream: true });
+    result += chunk;
+  }
+
+  return result;
+}
+
+async function callClaudeJSON(prompt, systemPrompt = "", useWeb = false) {
+  const mode = useWeb ? "deep" : "fast";
+
+  const response = await fetch("/api/forge-json", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt,
+      sys: systemPrompt || "You are a powerful AI assistant.",
+      mode,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(errText || "Request failed");
+  }
+
+  const data = await response.json();
+  return data.result || "";
+}
   return (
     <div className="fu">
       <div className="bg" style={{ padding: "22px 26px", marginBottom: 18 }}>

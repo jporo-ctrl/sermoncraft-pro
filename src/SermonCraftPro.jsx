@@ -2,6 +2,31 @@ import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { PLAN_LIMITS, getPlanLimits } from "./lib/plans";
 import { canUseTool } from "./lib/usage";
 
+function cleanAIText(text) {
+  if (!text) return "";
+
+  return text
+    // remove headings
+    .replace(/^#{1,6}\s*/gm, "")
+
+    // remove bold/italic (stronger patterns first)
+    .replace(/\*\*\*([^*]+)\*\*\*/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+
+    // remove ANY remaining asterisks
+    .replace(/\*/g, "")
+
+    // normalize numbered lists
+    .replace(/\s*(\d+)\s*\.\s*/g, "$1. ")
+
+    // normalize spacing
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+
+    .trim();
+}
+
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const GOLD = "#B8860B";
@@ -514,21 +539,36 @@ function StatCard({ value, label, icon }) {
 }
 
 function OutputPanel({ text, loading, error, onCopy, onSave }) {
+  const cleanedText = String(text || "")
+    .replace(/\*\*\*/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "");
+
   if (error) {
     return <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>;
   }
-  if (!text && !loading) return null;
+
+  if (!cleanedText && !loading) return null;
+
   return (
     <div>
       <div style={styles.outputPanel}>
-        {loading && !text
+        {loading && !cleanedText
           ? <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Generating...</span>
-          : text
+          : cleanedText
         }
       </div>
-      {text && (
+      {cleanedText && (
         <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-          <Button variant="ghost" onClick={onCopy}>Copy</Button>
+          <Button
+            variant="ghost"
+            onClick={function () {
+              if (onCopy) onCopy();
+              else if (navigator.clipboard) navigator.clipboard.writeText(cleanedText);
+            }}
+          >
+            Copy
+          </Button>
           {onSave && <Button variant="outline" onClick={onSave}>Save to Library</Button>}
         </div>
       )}
@@ -743,10 +783,8 @@ function AIPastorScreen() {
   sys: sys,
   mode: mode,
   onChunk: function(acc) {
-    setOutput(
-      acc.replace(/^###\s*/gm, "").replace(/^##\s*/gm, "").replace(/^#\s*/gm, "")
-    );
-  }
+  setOutput(acc);
+}
 });
     } catch (e) {
       setError(e.message || "An error occurred.");
@@ -837,12 +875,22 @@ function AIPastorScreen() {
         </div>
       )}
 
-      <OutputPanel
-        text={output}
-        loading={loading}
-        error={""}
-        onCopy={function() { if (navigator.clipboard) navigator.clipboard.writeText(output); }}
-      />
+  <OutputPanel
+  text={cleanAIText(output)
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")}
+  loading={loading}
+  error={""}
+  onCopy={function() {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(
+        cleanAIText(output)
+          .replace(/\*\*/g, "")
+          .replace(/\*/g, "")
+      );
+    }
+  }}
+/>
 
       {showUpgradeModal && (
         <div
@@ -918,15 +966,29 @@ function TopicEngineScreen() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handleGenerate = useCallback(async function() {
-    if (!theme.trim()) {
-      setError("Please enter a theme or keyword.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    setResult(null);
+  setError("");
+setShowUpgradeMessage(false);
+
+if (!theme.trim()) {
+  setError("Please enter a theme or keyword.");
+  return;
+}
+
+const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, "fast");
+
+if (!usageCheck.ok) {
+  setError(usageCheck.message);
+  setShowUpgradeMessage(true);
+  return;
+}
+
+setLoading(true);
+setResult(null);
     try {
       var sys = "You are an expert sermon topic generator for Christian ministry. Return ONLY a valid JSON object with a 'topics' array, each item having: title, scripture, summary, angle.";
       var prompt = "Generate " + count + " sermon topic ideas.\nTheme: " + theme + "\nSeason/Context: " + season + "\n\nReturn JSON only.";
@@ -987,8 +1049,8 @@ function TopicEngineScreen() {
           </Button>
         </div>
       </div>
-      {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
-        {showUpgradeMessage && (
+     {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
+{showUpgradeMessage && (
   <div
     style={{
       background: "#fff3e0",
@@ -1060,6 +1122,70 @@ function TopicEngineScreen() {
           {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
         </div>
       )}
+{showUpgradeModal && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.45)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 9999,
+    }}
+  >
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        width: "90%",
+        maxWidth: 420,
+        boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+      }}
+    >
+      <div style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
+        Upgrade your plan
+      </div>
+
+      <div style={{ fontSize: 14, lineHeight: 1.6, color: "#444", marginBottom: 20 }}>
+        Upgrade to unlock more powerful topic generation.
+      </div>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button
+          style={{
+            background: "#b8860b",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            padding: "10px 14px",
+            cursor: "pointer",
+            fontWeight: "bold"
+          }}
+        >
+          Stripe checkout will be connected next
+        </button>
+
+        <button
+          onClick={() => setShowUpgradeModal(false)}
+          style={{
+            background: "#eee",
+            color: "#333",
+            border: "none",
+            borderRadius: 8,
+            padding: "10px 14px",
+            cursor: "pointer",
+            fontWeight: "bold"
+          }}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
@@ -1104,10 +1230,8 @@ function SermonForgeScreen({ onSave }) {
   sys: sys,
   mode: mode,
   onChunk: function(acc) {
-    setOutput(
-      acc.replace(/^###\s*/gm, "").replace(/^##\s*/gm, "").replace(/^#\s*/gm, "")
-    );
-  }
+  setOutput(acc);
+}
 });
     } catch (e) {
       setError(e.message || "An error occurred.");
@@ -1237,7 +1361,19 @@ function SermonForgeScreen({ onSave }) {
       )}
 
       <OutputPanel
-        text={output}
+  text={cleanAIText(output)
+  .replace(/\*\*/g, "")
+  .replace(/\*/g, "")}
+  loading={loading}
+  error={""}
+  onCopy={function() {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(
+        cleanAIText(output).replace(/\*/g, "")
+      );
+    }
+  }}
+/>
         loading={loading}
         error={""}
         onCopy={function() { if (navigator.clipboard) navigator.clipboard.writeText(output); }}

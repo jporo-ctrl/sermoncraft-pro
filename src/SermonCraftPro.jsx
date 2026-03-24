@@ -1059,6 +1059,7 @@ function SermonForgeScreen({ onSave }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handleForge = useCallback(async function() {
@@ -1067,16 +1068,18 @@ function SermonForgeScreen({ onSave }) {
       return;
     }
 
+        setError("");
+    setShowUpgradeMessage(false);
+
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
 
-if (!usageCheck.ok) {
-  setError(usageCheck.message);
-  setShowUpgradeMessage(true);
-  return;
-}
-setShowUpgradeMessage(false);
+    if (!usageCheck.ok) {
+      setError(usageCheck.message);
+      setShowUpgradeMessage(true);
+      return;
+    }
+
     setLoading(true);
-    setError("");
     setOutput("");
     try {
       var sys = "You are an expert sermon writer with deep theological training. Write complete, structured, compelling sermons with introduction, body points, illustrations, and a powerful conclusion. Use vivid language and pastoral warmth.";
@@ -1166,13 +1169,120 @@ setShowUpgradeMessage(false);
           </Button>
         </div>
       </div>
+                  {error && (
+        <div style={styles.errorPanel}>
+          {"\u26A0 "}{error}
+        </div>
+      )}
+
+      {showUpgradeMessage && (
+        <div
+          style={{
+            background: "#fff3e0",
+            border: "1px solid #e0c48f",
+            borderRadius: 10,
+            padding: 14,
+            marginTop: 12,
+            marginBottom: 12,
+            color: "#6b4b16",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+            Deep mode is not available on the free plan.
+          </div>
+
+          <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
+            Upgrade your plan to unlock Deep Mode in Sermon Forge.
+          </div>
+
+          <button
+            onClick={function () { setShowUpgradeModal(true); }}
+            style={{
+              background: "#b8860b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+          >
+            Upgrade Now
+          </button>
+        </div>
+      )}
+
       <OutputPanel
         text={output}
         loading={loading}
-        error={error}
+        error={""}
         onCopy={function() { if (navigator.clipboard) navigator.clipboard.writeText(output); }}
         onSave={handleSave}
       />
+
+      {showUpgradeModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: "90%",
+              maxWidth: 420,
+              boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
+              Upgrade your plan
+            </div>
+
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#444", marginBottom: 20 }}>
+              Deep mode is available on paid plans. Upgrade to unlock richer sermon generation and advanced tools.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                style={{
+                  background: "#b8860b",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Stripe checkout will be connected next
+              </button>
+
+              <button
+                onClick={function () { setShowUpgradeModal(false); }}
+                style={{
+                  background: "#eee",
+                  color: "#333",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

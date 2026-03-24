@@ -738,7 +738,16 @@ function AIPastorScreen() {
     try {
       var sys = "You are a deeply knowledgeable, pastoral AI ministry advisor. Speak with wisdom, biblical grounding, warmth, and clarity. Provide thoughtful, substantive pastoral guidance.";
       var prompt = "Pastoral Question / Topic: " + topic + (context.trim() ? "\n\nAdditional Context: " + context : "");
-      await callSermonAPI({ prompt: prompt, sys: sys, mode: mode, onChunk: function(acc) { setOutput(acc); } });
+      await callSermonAPI({
+  prompt: prompt,
+  sys: sys,
+  mode: mode,
+  onChunk: function(acc) {
+    setOutput(
+      acc.replace(/^###\s*/gm, "").replace(/^##\s*/gm, "").replace(/^#\s*/gm, "")
+    );
+  }
+});
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -785,7 +794,13 @@ function AIPastorScreen() {
           </Button>
         </div>
       </div>
-            {showUpgradeMessage && (
+                  {error && (
+        <div style={styles.errorPanel}>
+          {"\u26A0 "}{error}
+        </div>
+      )}
+
+      {showUpgradeMessage && (
         <div
           style={{
             background: "#fff3e0",
@@ -825,7 +840,7 @@ function AIPastorScreen() {
       <OutputPanel
         text={output}
         loading={loading}
-        error={error}
+        error={""}
         onCopy={function() { if (navigator.clipboard) navigator.clipboard.writeText(output); }}
       />
 
@@ -1084,7 +1099,16 @@ function SermonForgeScreen({ onSave }) {
     try {
       var sys = "You are an expert sermon writer with deep theological training. Write complete, structured, compelling sermons with introduction, body points, illustrations, and a powerful conclusion. Use vivid language and pastoral warmth.";
       var prompt = "Write a full sermon.\nTitle: " + (title || "(untitled)") + "\nScripture: " + (scripture || "(none specified)") + "\nAngle/Focus: " + (angle || "general") + "\nAudience: " + audience;
-      await callSermonAPI({ prompt: prompt, sys: sys, mode: mode, onChunk: function(acc) { setOutput(acc); } });
+      await callSermonAPI({
+  prompt: prompt,
+  sys: sys,
+  mode: mode,
+  onChunk: function(acc) {
+    setOutput(
+      acc.replace(/^###\s*/gm, "").replace(/^##\s*/gm, "").replace(/^#\s*/gm, "")
+    );
+  }
+});
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {

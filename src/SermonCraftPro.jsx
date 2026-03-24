@@ -1450,29 +1450,45 @@ function SermonForgeScreen({ onSave }) {
 function WordStudyScreen() {
   const [word, setWord] = useState("");
   const [verse, setVerse] = useState("");
+  const [mode, setMode] = useState("fast");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handleStudy = useCallback(async function() {
+    setError("");
+    setShowUpgradeMessage(false);
+
     if (!word.trim() && !verse.trim()) {
       setError("Please enter a word or verse to study.");
       return;
     }
+
+    const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
+
+    if (!usageCheck.ok) {
+      setError(usageCheck.message);
+      setShowUpgradeMessage(true);
+      return;
+    }
+
     setLoading(true);
-    setError("");
     setResult(null);
+
     try {
       var sys = "You are a biblical scholar. Return ONLY a valid JSON object with: word, original (Hebrew/Greek), transliteration, definition, uses (array of {reference, context}), themes (array of strings), commentary (string).";
       var prompt = "Biblical word study.\nWord or Concept: " + (word || "(from verse)") + "\nVerse Reference: " + (verse || "(none)") + "\n\nReturn JSON only.";
-      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: "fast" });
+      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
       setResult(raw);
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
-  }, [word, verse]);
+  }, [word, verse, mode]);
 
   var study = useMemo(function() {
     return safeParseJSON(result);
@@ -1483,6 +1499,7 @@ function WordStudyScreen() {
       <div style={styles.goldAccent} />
       <div style={styles.sectionHeader}>Word Study</div>
       <div style={styles.sectionSub}>Explore the original Hebrew and Greek meanings of Scripture.</div>
+
       <div style={styles.card}>
         <div style={styles.grid2}>
           <div style={styles.inputGroup}>
@@ -1494,6 +1511,7 @@ function WordStudyScreen() {
               placeholder="e.g. Grace, Shalom, Logos"
             />
           </div>
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Verse Reference (optional)</label>
             <input
@@ -1504,59 +1522,75 @@ function WordStudyScreen() {
             />
           </div>
         </div>
-        <Button onClick={handleStudy} disabled={loading}>
-          {loading ? "Studying..." : "Study Word"}
-        </Button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <select
+            style={Object.assign({}, styles.select, { width: 140 })}
+            value={mode}
+            onChange={function(e) { setMode(e.target.value); }}
+          >
+            <option value="fast">Fast Mode</option>
+            <option value="deep">Deep Mode</option>
+          </select>
+
+          <Button onClick={handleStudy} disabled={loading}>
+            {loading ? "Studying..." : "Study Word"}
+          </Button>
+        </div>
       </div>
+
       {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
-        {showUpgradeMessage && (
-  <div
-    style={{
-      background: "#fff3e0",
-      border: "1px solid #e0c48f",
-      borderRadius: 10,
-      padding: 14,
-      marginTop: 12,
-      color: "#6b4b16",
-    }}
-  >
-    <div style={{ fontWeight: "bold", marginBottom: 6 }}>
-      Upgrade Required
-    </div>
 
-    <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
-      Deep sermon generation is available on paid plans. Upgrade your account to unlock deeper sermon creation.
-    </div>
+      {showUpgradeMessage && (
+        <div
+          style={{
+            background: "#fff3e0",
+            border: "1px solid #e0c48f",
+            borderRadius: 10,
+            padding: 14,
+            marginTop: 12,
+            marginBottom: 12,
+            color: "#6b4b16",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+            Upgrade Required
+          </div>
 
-    <button
-      style={{
-        background: "#b8860b",
-        color: "white",
-        border: "none",
-        borderRadius: 8,
-        padding: "10px 14px",
-        cursor: "pointer",
-        fontWeight: "bold"
-      }}
-      onClick={function () {
-        setShowUpgradeModal(true);
-      }}
-    >
-      Upgrade Now
-    </button>
-  </div>
-)}
+          <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
+            Advanced word study is available on paid plans. Upgrade to unlock deeper biblical insights.
+          </div>
+
+          <button
+            onClick={function () { setShowUpgradeModal(true); }}
+            style={{
+              background: "#b8860b",
+              color: "white",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+          >
+            Upgrade Now
+          </button>
+        </div>
+      )}
+
       {loading && !result && (
         <div style={styles.outputPanel}>
           <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Analyzing scripture...</span>
         </div>
       )}
+
       {study && (
         <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={styles.card}>
             <div style={{ fontSize: 22, fontWeight: 700, color: CHARCOAL, marginBottom: 4 }}>
               {study.word || word}
             </div>
+
             {study.original && (
               <div style={{ fontSize: 18, color: GOLD, marginBottom: 4 }}>
                 {study.original}
@@ -1565,16 +1599,23 @@ function WordStudyScreen() {
                 )}
               </div>
             )}
-            {study.definition && (
-              <div style={{ fontSize: 15, color: STONE, lineHeight: 1.7, marginBottom: 12 }}>{study.definition}</div>
-            )}
-            {study.commentary && (
-              <div>
-                <div style={styles.label}>Commentary</div>
-                <div style={{ fontSize: 14, color: CHARCOAL, lineHeight: 1.7 }}>{study.commentary}</div>
-              </div>
-            )}
+
+           {study.definition && (
+  <div style={{ fontSize: 15, color: STONE, lineHeight: 1.7, marginBottom: 12 }}>
+    {study.definition}
+  </div>
+)}
+
+{study.commentary && (
+  <div>
+    <div style={styles.label}>Commentary</div>
+    <div style={{ fontSize: 14, color: CHARCOAL, lineHeight: 1.7 }}>
+      {study.commentary}
+    </div>
+  </div>
+)}
           </div>
+
           {Array.isArray(study.uses) && study.uses.length > 0 && (
             <div style={styles.card}>
               <div style={styles.cardTitle}>Key Uses in Scripture</div>
@@ -1583,7 +1624,12 @@ function WordStudyScreen() {
                   return (
                     <div
                       key={i}
-                      style={{ padding: "10px 14px", backgroundColor: CREAM, borderRadius: 8, borderLeft: "3px solid " + GOLD }}
+                      style={{
+                        padding: "10px 14px",
+                        backgroundColor: CREAM,
+                        borderRadius: 8,
+                        borderLeft: "3px solid " + GOLD
+                      }}
                     >
                       <div style={{ fontWeight: 600, color: GOLD, fontSize: 13 }}>{u.reference}</div>
                       <div style={{ fontSize: 14, color: STONE, marginTop: 2 }}>{u.context}</div>
@@ -1593,6 +1639,7 @@ function WordStudyScreen() {
               </div>
             </div>
           )}
+
           {Array.isArray(study.themes) && study.themes.length > 0 && (
             <div style={styles.card}>
               <div style={styles.cardTitle}>Themes</div>
@@ -1607,9 +1654,74 @@ function WordStudyScreen() {
           )}
         </div>
       )}
+
       {result && !study && (
         <div style={styles.outputPanel}>
           {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: "90%",
+              maxWidth: 420,
+              boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
+              Upgrade your plan
+            </div>
+
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#444", marginBottom: 20 }}>
+              Upgrade to unlock deeper word study insights and advanced tools.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                style={{
+                  background: "#b8860b",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Stripe checkout will be connected next
+              </button>
+
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                style={{
+                  background: "#eee",
+                  color: "#333",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { PLAN_LIMITS, getPlanLimits } from "./lib/plans";
+import { canUseTool } from "./lib/usage";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -35,11 +37,11 @@ const ADMIN_NAV = [
 ];
 
 const SEED_CHURCH = {
-  name: "Cornerstone Community Church",
+  name: "Kingdom Insights Ministries",
   denomination: "Non-Denominational",
-  city: "Nashville, TN",
-  founded: 1987,
-  members: 4200,
+  city: "Hurst, TX",
+  founded: 2016,
+  members: 1000,
   branches: 3,
 };
 
@@ -50,7 +52,7 @@ const SEED_BRANCHES = [
 ];
 
 const SEED_USERS = [
-  { id: 1, name: "Rev. Daniel Brooks", role: "Senior Pastor", branch: "Main Campus", email: "d.brooks@cornerstone.org", active: true, sermons: 48 },
+  { id: 1, name: "Ap. Josh Poro", role: "Senior Pastor", branch: "Main Campus", email: "jporo@kim.church", active: true, sermons: 48 },
   { id: 2, name: "Pastor Sarah Kim", role: "Campus Pastor", branch: "East Side", email: "s.kim@cornerstone.org", active: true, sermons: 31 },
   { id: 3, name: "Pastor Marcus Webb", role: "Campus Pastor", branch: "Westview", email: "m.webb@cornerstone.org", active: true, sermons: 22 },
   { id: 4, name: "Elder Thomas Grace", role: "Associate Pastor", branch: "Main Campus", email: "t.grace@cornerstone.org", active: true, sermons: 14 },
@@ -66,11 +68,12 @@ const SEED_SERMONS = [
 
 const CURRENT_USER = {
   id: 1,
-  name: "Rev. Daniel Brooks",
+  name: "Ap. Josh Poro",
   role: "Senior Pastor",
   church: SEED_CHURCH.name,
   branch: "Main Campus",
   isAdmin: true,
+  plan: "free",
 };
 
 // ─── API HELPERS ──────────────────────────────────────────────────────────────
@@ -542,25 +545,92 @@ function safeParseJSON(raw) {
     return null;
   }
 }
-
-// ─── PASTOR SCREENS ───────────────────────────────────────────────────────────
-
 function DashboardScreen({ user, library, setCurrentScreen }) {
   var recentSermons = library.slice(0, 3);
   var nameParts = user.name.split(" ");
-  var firstName = nameParts.length > 1 ? nameParts[1] : nameParts[0];
+  var firstName = nameParts.length > 1 ? nameParts[0] : nameParts[0];
+  const limits = getPlanLimits(CURRENT_USER.plan || "free");
+  const currentPlan = CURRENT_USER.plan || "free";
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   return (
-    <div>
+    <div style={styles.container}>
+      <div
+        style={{
+          background: "#fffaf2",
+          border: "1px solid #e8dcc8",
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 20,
+          boxShadow: "0 2px 12px rgba(44,36,22,0.08)"
+        }}
+      >
+        <div style={{ fontWeight: "bold", marginBottom: 10 }}>Plan Usage</div>
+        <div style={{ marginBottom: 10 }}><strong>Current Plan:</strong> {currentPlan}</div>
+        <div><strong>Plan Name:</strong> {limits.name}</div>
+        <div style={{ fontWeight: "bold", marginBottom: 10 }}>Plan Usage</div>
+<div style={{ marginBottom: 10 }}><strong>Current Plan:</strong> {currentPlan}</div>
+<div><strong>Plan Name:</strong> {limits.name}</div>
+
+<div style={{ marginTop: 12 }}>
+  <strong>Switch Plan (dev):</strong>
+  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+    {["free", "starter", "growth", "pro"].map(function(p) {
+      return (
+        <button
+          key={p}
+          onClick={function() {
+            CURRENT_USER.plan = p;
+            window.location.reload();
+          }}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 6,
+            border: "1px solid #ccc",
+            background: currentPlan === p ? "#b8860b" : "#fff",
+            color: currentPlan === p ? "#fff" : "#333",
+            cursor: "pointer",
+            fontSize: 12
+          }}
+        >
+          {p}
+        </button>
+      );
+    })}
+  </div>
+</div>
+        <div><strong>Fast Generations:</strong> {limits.fast}</div>
+        <div><strong>Deep Generations:</strong> {limits.deep}</div>
+        <div><strong>Library Save:</strong> {limits.saveLibrary ? "Yes" : "No"}</div>
+        <div><strong>Series Planner:</strong> {limits.seriesPlanner ? "Yes" : "No"}</div>
+        <div><strong>Team Seats:</strong> {limits.teamSeats}</div>
+
+        <button
+          style={{
+            marginTop: 14,
+            background: "#b8860b",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            padding: "10px 14px",
+            cursor: "pointer",
+            fontWeight: "bold"
+          }}
+          onClick={() => setShowUpgradeModal(true)}
+        >
+          Upgrade Now
+        </button>
+      </div>
+
       <div style={styles.goldAccent} />
       <div style={styles.sectionHeader}>Good morning, {firstName}.</div>
       <div style={styles.sectionSub}>Your ministry tools are ready. What will you build today?</div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20, marginBottom: 28 }}>
-        <StatCard value={library.length} label="Saved Sermons" icon={"\uD83D\uDCDC"} />
-        <StatCard value="48" label="Total This Year" icon={"\uD83D\uDCC5"} />
-        <StatCard value="3" label="Active Series" icon={"\uD83C\uDFAF"} />
-        <StatCard value="4,200" label="Congregation" icon={"\uD83D\uDE4F"} />
+        <StatCard value={library.length} label="Saved Sermons" icon={"📜"} />
+        <StatCard value="48" label="Total This Year" icon={"📅"} />
+        <StatCard value="3" label="Active Series" icon={"🎯"} />
+        <StatCard value="4,200" label="Congregation" icon={"🙏"} />
       </div>
 
       <div style={styles.grid2}>
@@ -569,10 +639,10 @@ function DashboardScreen({ user, library, setCurrentScreen }) {
           <div style={styles.cardMeta}>Launch a ministry tool instantly</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { id: "sermon-forge", label: "Start a New Sermon", icon: "\uD83D\uDCDC" },
-              { id: "topic-engine", label: "Generate Topics", icon: "\uD83D\uDCA1" },
-              { id: "word-study", label: "Explore a Scripture", icon: "\uD83D\uDCDA" },
-              { id: "series-planner", label: "Plan a Series", icon: "\uD83D\uDCC5" },
+              { id: "sermon-forge", label: "Start a New Sermon", icon: "📜" },
+              { id: "topic-engine", label: "Generate Topics", icon: "💡" },
+              { id: "word-study", label: "Explore a Scripture", icon: "📚" },
+              { id: "series-planner", label: "Plan a Series", icon: "📅" },
             ].map(function(tool) {
               return (
                 <button
@@ -604,30 +674,42 @@ function DashboardScreen({ user, library, setCurrentScreen }) {
         <div style={styles.card}>
           <div style={styles.cardTitle}>Recent Sermons</div>
           <div style={styles.cardMeta}>From your library</div>
+
           {recentSermons.length === 0 && (
-            <div style={{ color: STONE_LIGHT, fontSize: 14, fontStyle: "italic" }}>No sermons saved yet.</div>
+            <div style={{ color: STONE_LIGHT, fontSize: 14, fontStyle: "italic" }}>
+              No sermons saved yet.
+            </div>
           )}
+
           {recentSermons.map(function(s) {
             return (
               <div key={s.id} style={{ padding: "10px 0", borderBottom: "1px solid " + BORDER }}>
                 <div style={{ fontWeight: 600, fontSize: 14, color: CHARCOAL }}>{s.title}</div>
                 <div style={{ fontSize: 12, color: STONE_LIGHT, marginTop: 2 }}>
-                  {s.scripture ? s.scripture + " \u00B7 " : ""}{s.savedAt}
+                  {s.scripture ? s.scripture + " · " : ""}{s.savedAt}
                 </div>
               </div>
             );
           })}
+
           {recentSermons.length > 0 && (
-            <Button variant="ghost" style={{ marginTop: 12, fontSize: 12 }} onClick={function() { setCurrentScreen("library"); }}>
+            <Button
+              variant="ghost"
+              style={{ marginTop: 12, fontSize: 12 }}
+              onClick={function() { setCurrentScreen("library"); }}
+            >
               View All Sermons
             </Button>
           )}
         </div>
       </div>
+
+      {showUpgradeModal && (
+        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
+      )}
     </div>
   );
 }
-
 function AIPastorScreen() {
   const [topic, setTopic] = useState("");
   const [context, setContext] = useState("");
@@ -635,15 +717,24 @@ function AIPastorScreen() {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const currentUsage = { fast_used: 0, deep_used: 0 };
 
-  const handleGenerate = useCallback(async function() {
-    if (!topic.trim()) {
-      setError("Please enter a question or topic.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    setOutput("");
+  const handleGenerate = useCallback(async function () {
+  setError("");
+  setShowUpgradeMessage(false);
+
+  const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
+
+  if (!usageCheck.ok) {
+    setError(usageCheck.message);
+    setShowUpgradeMessage(true);
+    return;
+  }
+
+  setLoading(true);
+  setOutput("");
     try {
       var sys = "You are a deeply knowledgeable, pastoral AI ministry advisor. Speak with wisdom, biblical grounding, warmth, and clarity. Provide thoughtful, substantive pastoral guidance.";
       var prompt = "Pastoral Question / Topic: " + topic + (context.trim() ? "\n\nAdditional Context: " + context : "");
@@ -694,12 +785,113 @@ function AIPastorScreen() {
           </Button>
         </div>
       </div>
+            {showUpgradeMessage && (
+        <div
+          style={{
+            background: "#fff3e0",
+            border: "1px solid #e0c48f",
+            borderRadius: 10,
+            padding: 14,
+            marginTop: 12,
+            marginBottom: 12,
+            color: "#6b4b16",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+            Deep mode is not available on the free plan.
+          </div>
+
+          <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
+            Upgrade your plan to unlock Deep Mode in AI Pastor.
+          </div>
+
+          <button
+            onClick={function () { setShowUpgradeModal(true); }}
+            style={{
+              background: "#b8860b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+          >
+            Upgrade Now
+          </button>
+        </div>
+      )}
+
       <OutputPanel
         text={output}
         loading={loading}
         error={error}
         onCopy={function() { if (navigator.clipboard) navigator.clipboard.writeText(output); }}
       />
+
+      {showUpgradeModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: "90%",
+              maxWidth: 420,
+              boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
+              Upgrade your plan
+            </div>
+
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#444", marginBottom: 20 }}>
+              Deep mode is available on paid plans. Upgrade to unlock richer sermon generation and advanced tools.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                style={{
+                  background: "#b8860b",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Stripe checkout will be connected next
+              </button>
+
+                                                     <button
+                onClick={function () { setShowUpgradeModal(false); }}
+                style={{
+                  background: "#eee",
+                  color: "#333",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -781,6 +973,41 @@ function TopicEngineScreen() {
         </div>
       </div>
       {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
+        {showUpgradeMessage && (
+  <div
+    style={{
+      background: "#fff3e0",
+      border: "1px solid #e0c48f",
+      borderRadius: 10,
+      padding: 14,
+      marginTop: 12,
+      color: "#6b4b16",
+    }}
+  >
+    <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+      Upgrade required
+    </div>
+
+    <div style={{ marginBottom: 10 }}>
+      Deep mode is available on a paid plan.
+    </div>
+
+    <button
+      onClick={() => setShowUpgradeModal(true)}
+      style={{
+        background: "#b8860b",
+        color: "#fff",
+        border: "none",
+        borderRadius: 8,
+        padding: "10px 14px",
+        cursor: "pointer",
+        fontWeight: "bold"
+      }}
+    >
+      Upgrade Now
+    </button>
+  </div>
+)}
       {loading && !result && (
         <div style={styles.outputPanel}>
           <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Generating topics...</span>
@@ -831,12 +1058,23 @@ function SermonForgeScreen({ onSave }) {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handleForge = useCallback(async function() {
     if (!title.trim() && !scripture.trim()) {
       setError("Please provide a title or scripture reference.");
       return;
     }
+
+    const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
+
+if (!usageCheck.ok) {
+  setError(usageCheck.message);
+  setShowUpgradeMessage(true);
+  return;
+}
+setShowUpgradeMessage(false);
     setLoading(true);
     setError("");
     setOutput("");
@@ -1001,6 +1239,43 @@ function WordStudyScreen() {
         </Button>
       </div>
       {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
+        {showUpgradeMessage && (
+  <div
+    style={{
+      background: "#fff3e0",
+      border: "1px solid #e0c48f",
+      borderRadius: 10,
+      padding: 14,
+      marginTop: 12,
+      color: "#6b4b16",
+    }}
+  >
+    <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+      Upgrade Required
+    </div>
+
+    <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
+      Deep sermon generation is available on paid plans. Upgrade your account to unlock deeper sermon creation.
+    </div>
+
+    <button
+      style={{
+        background: "#b8860b",
+        color: "white",
+        border: "none",
+        borderRadius: 8,
+        padding: "10px 14px",
+        cursor: "pointer",
+        fontWeight: "bold"
+      }}
+      onClick={function () {
+        setShowUpgradeModal(true);
+      }}
+    >
+      Upgrade Now
+    </button>
+  </div>
+)}
       {loading && !result && (
         <div style={styles.outputPanel}>
           <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Analyzing scripture...</span>
@@ -1083,6 +1358,13 @@ function IllustrationsScreen() {
       setError("Please enter a sermon topic or theme.");
       return;
     }
+
+    const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
+
+if (!usageCheck.ok) {
+  setError(usageCheck.message);
+  return;
+}
     setLoading(true);
     setError("");
     setResult(null);

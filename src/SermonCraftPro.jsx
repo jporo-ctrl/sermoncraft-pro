@@ -135,20 +135,42 @@ async function callSermonAPI({ prompt, sys, mode = "fast", onChunk }) {
 }
 
 async function callJSONAPI({ prompt, sys, mode = "fast" }) {
-  const response = await fetch("/api/forge-json", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, sys, mode }),
+  const url =
+    window.location.hostname === "localhost"
+      ? "https://sermoncraft-pro.vercel.app/api/forge-json"
+      : "/api/forge-json";
+
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, sys, mode }),
+    });
+  } catch (err) {
+    console.error("callJSONAPI network failure:", err);
+    throw new Error("Failed to fetch");
+  }
+
+  const rawText = await response.text().catch(function() {
+    return "";
   });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error("API error " + response.status + ": " + errorText);
+    throw new Error("API error " + response.status + ": " + rawText);
   }
 
-  const data = await response.json();
+  let data;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch (err) {
+    console.error("callJSONAPI invalid JSON:", rawText);
+    throw new Error("Invalid JSON response from /api/forge-json");
+  }
 
   if (!data || data.result === undefined) {
+    console.error("callJSONAPI missing result field:", data);
     throw new Error("Invalid API response: missing result field.");
   }
 
@@ -1734,8 +1756,16 @@ function IllustrationsScreen() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mode, setMode] = useState("fast");
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handleGenerate = useCallback(async function() {
+    setError("");
+    setShowUpgradeMessage(false);
+    setShowUpgradeModal(false);
+
     if (!topic.trim()) {
       setError("Please enter a sermon topic or theme.");
       return;
@@ -1743,24 +1773,37 @@ function IllustrationsScreen() {
 
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
 
-if (!usageCheck.ok) {
-  setError(usageCheck.message);
-  return;
-}
+    if (!usageCheck.ok) {
+      setError(usageCheck.message);
+      setShowUpgradeMessage(true);
+      return;
+    }
+
     setLoading(true);
-    setError("");
     setResult(null);
+
     try {
       var sys = "You are a masterful sermon illustrator. Return ONLY a valid JSON object with an 'illustrations' array, each having: title, type, content, application, scripture (optional).";
       var prompt = "Generate 3 sermon illustrations.\nType: " + illType + "\nTopic/Theme: " + topic + "\n\nReturn JSON only.";
-      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: "fast" });
+            var raw = JSON.stringify({
+        illustrations: [
+          {
+            title: "Test Illustration",
+            type: illType,
+            content: "This is a local test response.",
+            application: "This proves the Illustrations screen is working.",
+            scripture: "John 3:16"
+          }
+        ]
+      });
+      setResult(raw);
       setResult(raw);
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
-  }, [topic, illType]);
+  }, [topic, illType, mode]);
 
   var illustrations = useMemo(function() {
     var parsed = safeParseJSON(result);
@@ -1775,7 +1818,8 @@ if (!usageCheck.ok) {
       <div style={styles.goldAccent} />
       <div style={styles.sectionHeader}>Illustrations</div>
       <div style={styles.sectionSub}>Generate vivid sermon illustrations, stories, and object lessons.</div>
-      <div style={styles.card}>
+
+      <div style={{ ...styles.card, position: "relative", zIndex: 1 }}>
         <div style={styles.grid2}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Sermon Topic or Theme</label>
@@ -1786,25 +1830,88 @@ if (!usageCheck.ok) {
               placeholder="e.g. Redemption, Service, Courage"
             />
           </div>
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Illustration Type</label>
-            <select style={styles.select} value={illType} onChange={function(e) { setIllType(e.target.value); }}>
+            <select
+              style={styles.select}
+              value={illType}
+              onChange={function(e) { setIllType(e.target.value); }}
+            >
               {["Story", "Object Lesson", "Historical", "Contemporary", "Parable", "Metaphor"].map(function(t) {
                 return <option key={t} value={t}>{t}</option>;
               })}
             </select>
           </div>
         </div>
-        <Button onClick={handleGenerate} disabled={loading}>
-          {loading ? "Generating..." : "Generate Illustrations"}
-        </Button>
+
+        <div style={{ marginTop: 12, position: "relative", zIndex: 9999 }}>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={loading}
+            style={{
+              pointerEvents: "auto",
+              position: "relative",
+              zIndex: 9999,
+              background: GOLD,
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 10,
+              padding: "12px 18px",
+              fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? "Generating..." : "Generate Illustrations"}
+          </button>
+        </div>
       </div>
+
       {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
+
+      {showUpgradeMessage && (
+        <div
+          style={{
+            background: "#fff3e0",
+            border: "1px solid #e0c48f",
+            borderRadius: 10,
+            padding: 14,
+            marginTop: 12,
+            color: "#6b4b16",
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>
+            Upgrade required
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            Deep mode for Illustrations is not available on your current plan. Upgrade to continue.
+          </div>
+          <button
+            type="button"
+            onClick={function() { setShowUpgradeModal(true); }}
+            style={{
+              background: GOLD,
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 10,
+              padding: "12px 18px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Upgrade Now
+          </button>
+        </div>
+      )}
+
       {loading && !result && (
         <div style={styles.outputPanel}>
           <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Crafting illustrations...</span>
         </div>
       )}
+
       {illustrations.length > 0 && (
         <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 16 }}>
           {illustrations.map(function(ill, i) {
@@ -1814,31 +1921,50 @@ if (!usageCheck.ok) {
                   <div style={{ fontWeight: 700, fontSize: 16, color: CHARCOAL }}>
                     {ill.title || ("Illustration " + (i + 1))}
                   </div>
-                  <span style={Object.assign({}, styles.tag, styles.tagGold)}>{ill.type || illType}</span>
+                  <span style={Object.assign({}, styles.tag, styles.tagGold)}>
+                    {ill.type || illType}
+                  </span>
                 </div>
+
                 {ill.content && (
-                  <div style={{ fontSize: 14, color: STONE, lineHeight: 1.7, marginBottom: 12 }}>{ill.content}</div>
+                  <div style={{ fontSize: 14, color: STONE, lineHeight: 1.7, marginBottom: 12 }}>
+                    {ill.content}
+                  </div>
                 )}
+
                 {ill.application && (
                   <div style={{ padding: "10px 14px", backgroundColor: GOLD_PALE, borderRadius: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: GOLD, marginBottom: 4, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                       Application
                     </div>
-                    <div style={{ fontSize: 13, color: CHARCOAL }}>{ill.application}</div>
+                    <div style={{ fontSize: 13, color: CHARCOAL }}>
+                      {ill.application}
+                    </div>
                   </div>
                 )}
+
                 {ill.scripture && (
-                  <div style={{ fontSize: 13, color: GOLD, marginTop: 10 }}>{"\uD83D\uDCDA "}{ill.scripture}</div>
+                  <div style={{ fontSize: 13, color: GOLD, marginTop: 10 }}>
+                    {"\uD83D\uDCDA "}{ill.scripture}
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
       )}
+
       {showRawFallback && (
         <div style={styles.outputPanel}>
           {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
         </div>
+      )}
+
+      {showUpgradeModal && (
+        <UpgradeModal
+          open={showUpgradeModal}
+          onClose={function() { setShowUpgradeModal(false); }}
+        />
       )}
     </div>
   );
@@ -1920,7 +2046,7 @@ function SeriesPlannerScreen() {
     try {
       var sys = "You are an expert sermon series strategist. Return ONLY a valid JSON object with: series_title, overview, sermons (array of {week, title, scripture, summary, key_point}).";
       var prompt = "Plan a " + weeks + "-week sermon series.\nTitle: " + (seriesTitle || theme) + "\nTheme/Focus: " + (theme || seriesTitle) + "\n\nReturn JSON only.";
-      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: "fast" });
+            var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
       setResult(raw);
     } catch (e) {
       setError(e.message || "An error occurred.");

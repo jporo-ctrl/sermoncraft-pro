@@ -1,32 +1,23 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-res.setHeader("Access-Control-Allow-Origin", "*");
-res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-if (req.method === "OPTIONS") {
-  return res.status(200).end();
-}
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
 
-export const config = {
-  runtime: "edge",
-};
-
-export default async function handler(req) {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-    });
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const body = await req.json();
-    const { prompt, sys, mode } = body;
+    const { prompt, sys, mode } = req.body || {};
 
     if (!prompt) {
-      return new Response(JSON.stringify({ error: "Missing prompt" }), {
-        status: 400,
-      });
+      return res.status(400).json({ error: "Missing prompt" });
     }
 
     const model =
@@ -52,33 +43,22 @@ export default async function handler(req) {
       ],
     });
 
-    const encoder = new TextEncoder();
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
 
-    return new Response(
-      new ReadableStream({
-        async start(controller) {
-          for await (const chunk of stream) {
-            if (chunk.type === "content_block_delta") {
-              const text = chunk.delta?.text || "";
-              controller.enqueue(encoder.encode(text));
-            }
-          }
-          controller.close();
-        },
-      }),
-      {
-        headers: {
-          "Content-Type": "text/plain",
-        },
+    for await (const chunk of stream) {
+      if (chunk.type === "content_block_delta") {
+        const text = chunk.delta?.text || "";
+        res.write(text);
       }
-    );
+    }
+
+    return res.end();
   } catch (err) {
-    return new Response(
-      JSON.stringify({
-        error: "AI request failed",
-        detail: String(err),
-      }),
-      { status: 500 }
-    );
+    return res.status(500).json({
+      error: "AI request failed",
+      detail: String(err),
+    });
   }
 }

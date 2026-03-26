@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-3-opus-20240229",
+        model: "claude-3-5-sonnet-20241022", // ← your original working model
         max_tokens: maxTokens,
         temperature: 0.7,
         system: sys,
@@ -21,7 +21,8 @@ export default async function handler(req, res) {
             role: "user",
             content: prompt
           }
-        ]
+        ],
+        stream: true
       })
     });
 
@@ -30,15 +31,41 @@ export default async function handler(req, res) {
       return res.status(500).send(text);
     }
 
-    const data = await response.json();
-
-    const text =
-      (data.content || [])
-        .map(c => c.text || "")
-        .join("");
-
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.status(200).send(text);
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+
+      const lines = chunk.split("\n");
+
+      for (let line of lines) {
+        if (!line.startsWith("data:")) continue;
+
+        const json = line.replace("data:", "").trim();
+        if (!json || json === "[DONE]") continue;
+
+        try {
+          const parsed = JSON.parse(json);
+
+          // ✅ Correct extraction for Messages streaming
+          if (parsed.type === "content_block_delta") {
+            const text = parsed.delta?.text;
+            if (text) {
+              res.write(text);
+            }
+          }
+
+        } catch (e) {}
+      }
+    }
+
+    res.end();
 
   } catch (e) {
     res.status(500).json({ error: e.message });

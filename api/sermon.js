@@ -7,9 +7,10 @@ export default async function handler(req, res) {
     const response = await fetch("https://api.anthropic.com/v1/complete", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY
-      },
+  "Content-Type": "application/json",
+  "x-api-key": process.env.ANTHROPIC_API_KEY,
+  "anthropic-version": "2023-06-01"
+},
       body: JSON.stringify({
         model: "claude-2.1",
         max_tokens_to_sample: maxTokens,

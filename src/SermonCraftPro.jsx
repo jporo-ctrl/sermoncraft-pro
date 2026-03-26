@@ -2867,18 +2867,50 @@ function ChurchSettingsScreen() {
 export default function SermonCraftPro() {
   const [currentScreen, setCurrentScreen] = useState("dashboard");
   const [viewMode, setViewMode] = useState("pastor");
-  const [library, setLibrary] = useState([]);
+  const [library, setLibrary] = useState(function() {
+    try {
+      var stored = localStorage.getItem("sermon_library");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const libCounter = useRef(100);
   const [forgePrefill, setForgePrefill] = useState(null);
 
+  useEffect(function() {
+    if (library.length > 0) {
+      var maxId = Math.max.apply(
+        null,
+        library.map(function(s) { return s.id || 0; })
+      );
+      libCounter.current = maxId;
+    }
+  }, []);
+
+  useEffect(function() {
+    try {
+      localStorage.setItem("sermon_library", JSON.stringify(library));
+    } catch (e) {}
+  }, [library]);
+
   const handleSaveToLibrary = useCallback(function(sermon) {
     libCounter.current += 1;
-    var newId = libCounter.current;
-    setLibrary(function(prev) { return [Object.assign({}, sermon, { id: newId }), ...prev]; });
+
+    var newItem = Object.assign({}, sermon, {
+      id: libCounter.current,
+      savedAt: sermon.savedAt || new Date().toISOString()
+    });
+
+    setLibrary(function(prev) {
+      return [newItem, ...prev];
+    });
   }, []);
 
   const handleDeleteFromLibrary = useCallback(function(id) {
-    setLibrary(function(prev) { return prev.filter(function(s) { return s.id !== id; }); });
+    setLibrary(function(prev) {
+      return prev.filter(function(s) { return s.id !== id; });
+    });
   }, []);
 
   const handleModeSwitch = useCallback(function(mode) {
@@ -2906,33 +2938,33 @@ export default function SermonCraftPro() {
       case "ai-pastor":
         return <AIPastorScreen />;
       case "topic-engine":
-  return (
-    <TopicEngineScreen
-      setForgePrefill={setForgePrefill}
-      setCurrentScreen={setCurrentScreen}
-    />
-  );
+        return (
+          <TopicEngineScreen
+            setForgePrefill={setForgePrefill}
+            setCurrentScreen={setCurrentScreen}
+          />
+        );
       case "sermon-forge":
-  return <SermonForgeScreen onSave={handleSaveToLibrary} prefill={forgePrefill} />;
+        return <SermonForgeScreen onSave={handleSaveToLibrary} prefill={forgePrefill} />;
       case "word-study":
-  return (
-    <WordStudyScreen
-      setForgePrefill={setForgePrefill}
-      setCurrentScreen={setCurrentScreen}
-    />
-  );
+        return (
+          <WordStudyScreen
+            setForgePrefill={setForgePrefill}
+            setCurrentScreen={setCurrentScreen}
+          />
+        );
       case "illustrations":
         return <IllustrationsScreen />;
       case "library":
         return <LibraryScreen library={library} onDelete={handleDeleteFromLibrary} />;
       case "series-planner":
-  return (
-  <SeriesPlannerScreen
-    onSaveSeries={handleSaveToLibrary}
-    setForgePrefill={setForgePrefill}
-    setCurrentScreen={setCurrentScreen}
-  />
-);
+        return (
+          <SeriesPlannerScreen
+            onSaveSeries={handleSaveToLibrary}
+            setForgePrefill={setForgePrefill}
+            setCurrentScreen={setCurrentScreen}
+          />
+        );
       case "church-overview":
         return <ChurchOverviewScreen />;
       case "branches":

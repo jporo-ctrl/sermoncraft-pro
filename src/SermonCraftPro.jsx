@@ -981,11 +981,12 @@ function AIPastorScreen() {
   );
 }
 
-function TopicEngineScreen() {
+function TopicEngineScreen({ setForgePrefill, setCurrentScreen }) {
   const [theme, setTheme] = useState("");
   const [season, setSeason] = useState("General");
   const [count, setCount] = useState("5");
-  const [result, setResult] = useState(null);
+  const [topics, setTopics] = useState([]);
+  const [rawResult, setRawResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
@@ -993,29 +994,54 @@ function TopicEngineScreen() {
   const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handleGenerate = useCallback(async function() {
-  setError("");
-setShowUpgradeMessage(false);
+    setError("");
+    setShowUpgradeMessage(false);
+    setTopics([]);
+    setRawResult(null);
 
-if (!theme.trim()) {
-  setError("Please enter a theme or keyword.");
-  return;
-}
+    if (!theme.trim()) {
+      setError("Please enter a theme or keyword.");
+      return;
+    }
 
-const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, "fast");
+    const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, "fast");
 
-if (!usageCheck.ok) {
-  setError(usageCheck.message);
-  setShowUpgradeMessage(true);
-  return;
-}
+    if (!usageCheck.ok) {
+      setError(usageCheck.message);
+      setShowUpgradeMessage(true);
+      return;
+    }
 
-setLoading(true);
-setResult(null);
+    setLoading(true);
+
     try {
       var sys = "You are an expert sermon topic generator for Christian ministry. Return ONLY a valid JSON object with a 'topics' array, each item having: title, scripture, summary, angle.";
-      var prompt = "Generate " + count + " sermon topic ideas.\nTheme: " + theme + "\nSeason/Context: " + season + "\n\nReturn JSON only.";
+      var prompt =
+        "Generate " + count + " sermon topic ideas.\n" +
+        "Theme: " + theme + "\n" +
+        "Season/Context: " + season + "\n\n" +
+        "Return JSON only.";
+
       var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: "fast" });
-      setResult(raw);
+      setRawResult(raw);
+
+      var text = typeof raw === "string" ? raw : JSON.stringify(raw);
+      text = text.trim();
+
+      text = text
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+
+      var parsed = JSON.parse(text);
+      var parsedTopics = Array.isArray(parsed.topics) ? parsed.topics : [];
+
+      setTopics(parsedTopics);
+
+      if (!parsedTopics.length) {
+        setError("No topics were returned.");
+      }
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -1023,19 +1049,14 @@ setResult(null);
     }
   }, [theme, season, count]);
 
-  var topics = useMemo(function() {
-    var parsed = safeParseJSON(result);
-    if (!parsed) return [];
-    return Array.isArray(parsed.topics) ? parsed.topics : [];
-  }, [result]);
-
-  var showRawFallback = result !== null && topics.length === 0 && !loading;
+  var showRawFallback = rawResult !== null && topics.length === 0 && !loading;
 
   return (
     <div>
       <div style={styles.goldAccent} />
       <div style={styles.sectionHeader}>Topic Engine</div>
       <div style={styles.sectionSub}>Generate compelling sermon topic ideas with Scripture anchors.</div>
+
       <div style={styles.card}>
         <div style={styles.grid2}>
           <div style={styles.inputGroup}>
@@ -1047,15 +1068,21 @@ setResult(null);
               placeholder="e.g. Forgiveness, Identity, Family"
             />
           </div>
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Season / Context</label>
-            <select style={styles.select} value={season} onChange={function(e) { setSeason(e.target.value); }}>
+            <select
+              style={styles.select}
+              value={season}
+              onChange={function(e) { setSeason(e.target.value); }}
+            >
               {["General", "Advent", "Easter", "Pentecost", "New Year", "Summer", "Missions"].map(function(s) {
                 return <option key={s} value={s}>{s}</option>;
               })}
             </select>
           </div>
         </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <select
             style={Object.assign({}, styles.select, { width: 130 })}
@@ -1066,148 +1093,193 @@ setResult(null);
               return <option key={n} value={n}>{n} Topics</option>;
             })}
           </select>
+
           <Button onClick={handleGenerate} disabled={loading}>
             {loading ? "Generating..." : "Generate Topics"}
           </Button>
         </div>
       </div>
-     {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
-{showUpgradeMessage && (
-  <div
-    style={{
-      background: "#fff3e0",
-      border: "1px solid #e0c48f",
-      borderRadius: 10,
-      padding: 14,
-      marginTop: 12,
-      color: "#6b4b16",
-    }}
-  >
-    <div style={{ fontWeight: "bold", marginBottom: 6 }}>
-      Upgrade required
-    </div>
 
-    <div style={{ marginBottom: 10 }}>
-      Deep mode is available on a paid plan.
-    </div>
+      {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
 
-    <button
-      onClick={() => setShowUpgradeModal(true)}
-      style={{
-        background: "#b8860b",
-        color: "#fff",
-        border: "none",
-        borderRadius: 8,
-        padding: "10px 14px",
-        cursor: "pointer",
-        fontWeight: "bold"
-      }}
-    >
-      Upgrade Now
-    </button>
-  </div>
-)}
-      {loading && !result && (
-        <div style={styles.outputPanel}>
-          <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Generating topics...</span>
+      {showUpgradeMessage && (
+        <div
+          style={{
+            background: "#fff3e0",
+            border: "1px solid #e0c48f",
+            borderRadius: 10,
+            padding: 14,
+            marginTop: 12,
+            color: "#6b4b16",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+            Upgrade required
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            Deep mode is available on a paid plan.
+          </div>
+
+          <button
+            onClick={function() { setShowUpgradeModal(true); }}
+            style={{
+              background: "#b8860b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+          >
+            Upgrade Now
+          </button>
         </div>
       )}
+
+      {loading && (
+        <div style={styles.outputPanel}>
+          <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>
+            Generating topics...
+          </span>
+        </div>
+      )}
+
       {topics.length > 0 && (
         <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 14 }}>
           {topics.map(function(t, i) {
             return (
               <div key={i} style={styles.card}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 16, color: CHARCOAL, marginBottom: 4 }}>
                       {t.title || ("Topic " + (i + 1))}
                     </div>
+
                     {t.scripture && (
-                      <div style={{ fontSize: 13, color: GOLD, marginBottom: 6 }}>{"\uD83D\uDCDA "}{t.scripture}</div>
+                      <div style={{ fontSize: 13, color: GOLD, marginBottom: 6 }}>
+                        {"\uD83D\uDCDA "}{t.scripture}
+                      </div>
                     )}
+
                     {t.summary && (
-                      <div style={{ fontSize: 14, color: STONE, lineHeight: 1.6 }}>{t.summary}</div>
+                      <div style={{ fontSize: 14, color: STONE, lineHeight: 1.6 }}>
+                        {t.summary}
+                      </div>
                     )}
+
                     {t.angle && (
-                      <div style={{ fontSize: 13, color: STONE_LIGHT, marginTop: 6, fontStyle: "italic" }}>Angle: {t.angle}</div>
+                      <div style={{ fontSize: 13, color: STONE_LIGHT, marginTop: 6, fontStyle: "italic" }}>
+                        Angle: {t.angle}
+                      </div>
                     )}
+
+                    <div style={{ marginTop: 10 }}>
+                      <button
+                        type="button"
+                        onClick={function() {
+                          setForgePrefill({
+                            title: t.title || "",
+                            scripture: t.scripture || "",
+                            angle: t.angle || ""
+                          });
+                          setCurrentScreen("sermon-forge");
+                        }}
+                        style={{
+                          background: GOLD,
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "8px 12px",
+                          fontWeight: 700,
+                          cursor: "pointer"
+                        }}
+                      >
+                        Generate Sermon
+                      </button>
+                    </div>
                   </div>
-                  <span style={Object.assign({}, styles.tag, styles.tagGold, { flexShrink: 0 })}>{"#" + (i + 1)}</span>
+
+                  <span style={Object.assign({}, styles.tag, styles.tagGold, { flexShrink: 0 })}>
+                    {"#" + (i + 1)}
+                  </span>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
       {showRawFallback && (
         <div style={styles.outputPanel}>
-          {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+          {typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult, null, 2)}
         </div>
       )}
-{showUpgradeModal && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.45)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 9999,
-    }}
-  >
-    <div
-      style={{
-        background: "#fff",
-        borderRadius: 12,
-        padding: 24,
-        width: "90%",
-        maxWidth: 420,
-        boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
-      }}
-    >
-      <div style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
-        Upgrade your plan
-      </div>
 
-      <div style={{ fontSize: 14, lineHeight: 1.6, color: "#444", marginBottom: 20 }}>
-        Upgrade to unlock more powerful topic generation.
-      </div>
-
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        <button
+      {showUpgradeModal && (
+        <div
           style={{
-            background: "#b8860b",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            padding: "10px 14px",
-            cursor: "pointer",
-            fontWeight: "bold"
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
           }}
         >
-          Stripe checkout will be connected next
-        </button>
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: "90%",
+              maxWidth: 420,
+              boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
+              Upgrade your plan
+            </div>
 
-        <button
-          onClick={() => setShowUpgradeModal(false)}
-          style={{
-            background: "#eee",
-            color: "#333",
-            border: "none",
-            borderRadius: 8,
-            padding: "10px 14px",
-            cursor: "pointer",
-            fontWeight: "bold"
-          }}
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#444", marginBottom: 20 }}>
+              Upgrade to unlock more powerful topic generation.
+            </div>
 
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                style={{
+                  background: "#b8860b",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Stripe checkout will be connected next
+              </button>
+
+              <button
+                onClick={function() { setShowUpgradeModal(false); }}
+                style={{
+                  background: "#eee",
+                  color: "#333",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontWeight: "bold"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1524,8 +1596,9 @@ function WordStudyScreen() {
     try {
       var sys = "You are a biblical scholar. Return ONLY a valid JSON object with: word, original (Hebrew/Greek), transliteration, definition, uses (array of {reference, context}), themes (array of strings), commentary (string).";
       var prompt = "Biblical word study.\nWord or Concept: " + (word || "(from verse)") + "\nVerse Reference: " + (verse || "(none)") + "\n\nReturn JSON only.";
-      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
-      setResult(raw);
+      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: "fast" });
+console.log("TOPIC ENGINE RAW:", raw);
+setResult(raw);
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -2796,7 +2869,12 @@ export default function SermonCraftPro() {
       case "ai-pastor":
         return <AIPastorScreen />;
       case "topic-engine":
-        return <TopicEngineScreen />;
+  return (
+    <TopicEngineScreen
+      setForgePrefill={setForgePrefill}
+      setCurrentScreen={setCurrentScreen}
+    />
+  );
       case "sermon-forge":
   return <SermonForgeScreen onSave={handleSaveToLibrary} prefill={forgePrefill} />;
       case "word-study":

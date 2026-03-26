@@ -1329,14 +1329,19 @@ function SermonForgeScreen({ onSave, prefill }) {
     setOutput("");
 
     try {
-      var sys = "You are an expert sermon writer with deep theological training. Write complete, structured, compelling sermons with introduction, body points, illustrations, and a powerful conclusion. Use vivid language and pastoral warmth.";
+      var sys = "You are an expert sermon writer with deep theological training. Write complete, structured, compelling sermons with introduction, three body points, illustrations, and a powerful conclusion. Do not stop mid-sermon. End with the exact words: END OF SERMON.";
 
-      var prompt =
-        "Write a full sermon.\n" +
-        "Title: " + (title || "(untitled)") + "\n" +
-        "Scripture: " + (scripture || "(none specified)") + "\n" +
-        "Angle/Focus: " + (angle || "general") + "\n" +
-        "Audience: " + audience;
+var prompt =
+  "Write a complete sermon.\n" +
+  "Title: " + (title || "(untitled)") + "\n" +
+  "Scripture: " + (scripture || "(none specified)") + "\n" +
+  "Angle/Focus: " + (angle || "general") + "\n" +
+  "Audience: " + audience + "\n\n" +
+  "Requirements:\n" +
+  "1. Include a clear introduction.\n" +
+  "2. Include exactly 3 main body points.\n" +
+  "3. Include a strong conclusion.\n" +
+  "4. Finish with the exact words: END OF SERMON";
 
       await callSermonAPI({
         prompt: prompt,
@@ -1353,12 +1358,18 @@ function SermonForgeScreen({ onSave, prefill }) {
     }
   }, [title, scripture, angle, audience, mode]);
 
-  const handleSave = useCallback(function() {
-  if (!output) return;
+ const handleSave = useCallback(function() {
+  if (!output || loading) return;
+
+  if (!output.includes("END OF SERMON")) {
+    setError("Sermon is not complete yet. Please wait until generation finishes.");
+    return;
+  }
 
   var cleanedContent = cleanAIText(output)
     .replace(/\*\*/g, "")
     .replace(/\*/g, "")
+    .replace(/END OF SERMON/g, "")
     .trim();
 
   onSave({
@@ -1367,7 +1378,7 @@ function SermonForgeScreen({ onSave, prefill }) {
     content: cleanedContent,
     savedAt: new Date().toLocaleDateString(),
   });
-}, [output, title, scripture, onSave]);
+}, [output, loading, title, scripture, onSave]);
 
   return (
     <div>

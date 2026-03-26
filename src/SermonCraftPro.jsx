@@ -1562,11 +1562,12 @@ function SermonForgeScreen({ onSave, prefill }) {
   );
 }
 
-function WordStudyScreen() {
+function WordStudyScreen({ setForgePrefill, setCurrentScreen }) {
   const [word, setWord] = useState("");
   const [verse, setVerse] = useState("");
   const [mode, setMode] = useState("fast");
-  const [result, setResult] = useState(null);
+  const [study, setStudy] = useState(null);
+  const [rawResult, setRawResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
@@ -1576,6 +1577,8 @@ function WordStudyScreen() {
   const handleStudy = useCallback(async function() {
     setError("");
     setShowUpgradeMessage(false);
+    setStudy(null);
+    setRawResult(null);
 
     if (!word.trim() && !verse.trim()) {
       setError("Please enter a word or verse to study.");
@@ -1591,14 +1594,29 @@ function WordStudyScreen() {
     }
 
     setLoading(true);
-    setResult(null);
 
     try {
       var sys = "You are a biblical scholar. Return ONLY a valid JSON object with: word, original (Hebrew/Greek), transliteration, definition, uses (array of {reference, context}), themes (array of strings), commentary (string).";
-      var prompt = "Biblical word study.\nWord or Concept: " + (word || "(from verse)") + "\nVerse Reference: " + (verse || "(none)") + "\n\nReturn JSON only.";
+      var prompt =
+        "Biblical word study.\n" +
+        "Word or Concept: " + (word || "(from verse)") + "\n" +
+        "Verse Reference: " + (verse || "(none)") + "\n\n" +
+        "Return JSON only.";
+
       var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: "fast" });
-console.log("TOPIC ENGINE RAW:", raw);
-setResult(raw);
+      setRawResult(raw);
+
+      var text = typeof raw === "string" ? raw : JSON.stringify(raw);
+      text = text.trim();
+
+      text = text
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/\s*```$/i, "")
+        .trim();
+
+      var parsed = JSON.parse(text);
+      setStudy(parsed);
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -1606,9 +1624,7 @@ setResult(raw);
     }
   }, [word, verse, mode]);
 
-  var study = useMemo(function() {
-    return safeParseJSON(result);
-  }, [result]);
+  var showRawFallback = rawResult !== null && !study && !loading;
 
   return (
     <div>
@@ -1678,7 +1694,7 @@ setResult(raw);
           </div>
 
           <button
-            onClick={function () { setShowUpgradeModal(true); }}
+            onClick={function() { setShowUpgradeModal(true); }}
             style={{
               background: "#b8860b",
               color: "white",
@@ -1694,7 +1710,7 @@ setResult(raw);
         </div>
       )}
 
-      {loading && !result && (
+      {loading && (
         <div style={styles.outputPanel}>
           <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Analyzing scripture...</span>
         </div>
@@ -1711,25 +1727,27 @@ setResult(raw);
               <div style={{ fontSize: 18, color: GOLD, marginBottom: 4 }}>
                 {study.original}
                 {study.transliteration && (
-                  <span style={{ fontSize: 14, color: STONE_LIGHT }}>{" (" + study.transliteration + ")"}</span>
+                  <span style={{ fontSize: 14, color: STONE_LIGHT }}>
+                    {" (" + study.transliteration + ")"}
+                  </span>
                 )}
               </div>
             )}
 
-           {study.definition && (
-  <div style={{ fontSize: 15, color: STONE, lineHeight: 1.7, marginBottom: 12 }}>
-    {study.definition}
-  </div>
-)}
+            {study.definition && (
+              <div style={{ fontSize: 15, color: STONE, lineHeight: 1.7, marginBottom: 12 }}>
+                {study.definition}
+              </div>
+            )}
 
-{study.commentary && (
-  <div>
-    <div style={styles.label}>Commentary</div>
-    <div style={{ fontSize: 14, color: CHARCOAL, lineHeight: 1.7 }}>
-      {study.commentary}
-    </div>
-  </div>
-)}
+            {study.commentary && (
+              <div>
+                <div style={styles.label}>Commentary</div>
+                <div style={{ fontSize: 14, color: CHARCOAL, lineHeight: 1.7 }}>
+                  {study.commentary}
+                </div>
+              </div>
+            )}
           </div>
 
           {Array.isArray(study.uses) && study.uses.length > 0 && (
@@ -1747,8 +1765,12 @@ setResult(raw);
                         borderLeft: "3px solid " + GOLD
                       }}
                     >
-                      <div style={{ fontWeight: 600, color: GOLD, fontSize: 13 }}>{u.reference}</div>
-                      <div style={{ fontSize: 14, color: STONE, marginTop: 2 }}>{u.context}</div>
+                      <div style={{ fontWeight: 600, color: GOLD, fontSize: 13 }}>
+                        {u.reference}
+                      </div>
+                      <div style={{ fontSize: 14, color: STONE, marginTop: 2 }}>
+                        {u.context}
+                      </div>
                     </div>
                   );
                 })}
@@ -1761,19 +1783,34 @@ setResult(raw);
               <div style={styles.cardTitle}>Themes</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                 {study.themes.map(function(t, i) {
-                  return (
-                    <span key={i} style={Object.assign({}, styles.tag, styles.tagGold)}>{t}</span>
-                  );
-                })}
+  return (
+    <span
+      key={i}
+      onClick={function() {
+        setForgePrefill({
+          title: t,
+          scripture: verse || "",
+          angle: "Study focus: " + t
+        });
+        setCurrentScreen("sermon-forge");
+      }}
+      style={Object.assign({}, styles.tag, styles.tagGold, {
+        cursor: "pointer"
+      })}
+    >
+      {t}
+    </span>
+  );
+})}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {result && !study && (
+      {showRawFallback && (
         <div style={styles.outputPanel}>
-          {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+          {typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult, null, 2)}
         </div>
       )}
 
@@ -1823,7 +1860,7 @@ setResult(raw);
               </button>
 
               <button
-                onClick={() => setShowUpgradeModal(false)}
+                onClick={function() { setShowUpgradeModal(false); }}
                 style={{
                   background: "#eee",
                   color: "#333",
@@ -2878,7 +2915,12 @@ export default function SermonCraftPro() {
       case "sermon-forge":
   return <SermonForgeScreen onSave={handleSaveToLibrary} prefill={forgePrefill} />;
       case "word-study":
-        return <WordStudyScreen />;
+  return (
+    <WordStudyScreen
+      setForgePrefill={setForgePrefill}
+      setCurrentScreen={setCurrentScreen}
+    />
+  );
       case "illustrations":
         return <IllustrationsScreen />;
       case "library":

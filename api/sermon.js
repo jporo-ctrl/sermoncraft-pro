@@ -4,24 +4,21 @@ export default async function handler(req, res) {
 
     const maxTokens = mode === "deep" ? 4000 : 2000;
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.anthropic.com/v1/complete", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01"
+        "x-api-key": process.env.ANTHROPIC_API_KEY
       },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
-        max_tokens: maxTokens,
+        model: "claude-2.1",
+        max_tokens_to_sample: maxTokens,
         temperature: 0.7,
-        system: sys,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
+        prompt:
+          "\n\nHuman: " +
+          (sys ? sys + "\n\n" : "") +
+          prompt +
+          "\n\nAssistant:"
       })
     });
 
@@ -32,9 +29,7 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    const text =
-      data?.content?.map(c => c.text).join("") ||
-      "";
+    const text = data.completion || "";
 
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.status(200).send(text);

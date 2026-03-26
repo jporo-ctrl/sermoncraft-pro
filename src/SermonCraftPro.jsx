@@ -1354,15 +1354,20 @@ function SermonForgeScreen({ onSave, prefill }) {
   }, [title, scripture, angle, audience, mode]);
 
   const handleSave = useCallback(function() {
-    if (!output) return;
+  if (!output) return;
 
-    onSave({
-      title: title.trim() || "Untitled Sermon",
-      scripture: scripture.trim(),
-      content: output,
-      savedAt: new Date().toLocaleDateString(),
-    });
-  }, [output, title, scripture, onSave]);
+  var cleanedContent = cleanAIText(output)
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .trim();
+
+  onSave({
+    title: title.trim() || "Untitled Sermon",
+    scripture: scripture.trim(),
+    content: cleanedContent,
+    savedAt: new Date().toLocaleDateString(),
+  });
+}, [output, title, scripture, onSave]);
 
   return (
     <div>

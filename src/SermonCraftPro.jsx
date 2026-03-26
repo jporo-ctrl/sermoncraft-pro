@@ -1212,10 +1212,10 @@ setResult(null);
   );
 }
 
-function SermonForgeScreen({ onSave }) {
-  const [title, setTitle] = useState("");
-  const [scripture, setScripture] = useState("");
-  const [angle, setAngle] = useState("");
+function SermonForgeScreen({ onSave, prefill }) {
+  const [title, setTitle] = useState(prefill?.title || "");
+  const [scripture, setScripture] = useState(prefill?.scripture || "");
+  const [angle, setAngle] = useState(prefill?.angle || "");
   const [audience, setAudience] = useState("General Congregation");
   const [mode, setMode] = useState("deep");
   const [output, setOutput] = useState("");
@@ -1225,13 +1225,24 @@ function SermonForgeScreen({ onSave }) {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const currentUsage = { fast_used: 0, deep_used: 0 };
 
+  useEffect(function() {
+    if (prefill) {
+      setTitle(prefill.title || "");
+      setScripture(prefill.scripture || "");
+      setAngle(prefill.angle || "");
+      setOutput("");
+      setError("");
+      setShowUpgradeMessage(false);
+    }
+  }, [prefill]);
+
   const handleForge = useCallback(async function() {
     if (!title.trim() && !scripture.trim()) {
       setError("Please provide a title or scripture reference.");
       return;
     }
 
-        setError("");
+    setError("");
     setShowUpgradeMessage(false);
 
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
@@ -1244,17 +1255,25 @@ function SermonForgeScreen({ onSave }) {
 
     setLoading(true);
     setOutput("");
+
     try {
       var sys = "You are an expert sermon writer with deep theological training. Write complete, structured, compelling sermons with introduction, body points, illustrations, and a powerful conclusion. Use vivid language and pastoral warmth.";
-      var prompt = "Write a full sermon.\nTitle: " + (title || "(untitled)") + "\nScripture: " + (scripture || "(none specified)") + "\nAngle/Focus: " + (angle || "general") + "\nAudience: " + audience;
+
+      var prompt =
+        "Write a full sermon.\n" +
+        "Title: " + (title || "(untitled)") + "\n" +
+        "Scripture: " + (scripture || "(none specified)") + "\n" +
+        "Angle/Focus: " + (angle || "general") + "\n" +
+        "Audience: " + audience;
+
       await callSermonAPI({
-  prompt: prompt,
-  sys: sys,
-  mode: mode,
-  onChunk: function(acc) {
-  setOutput(acc);
-}
-});
+        prompt: prompt,
+        sys: sys,
+        mode: mode,
+        onChunk: function(acc) {
+          setOutput(acc);
+        }
+      });
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -1264,6 +1283,7 @@ function SermonForgeScreen({ onSave }) {
 
   const handleSave = useCallback(function() {
     if (!output) return;
+
     onSave({
       title: title.trim() || "Untitled Sermon",
       scripture: scripture.trim(),
@@ -1277,6 +1297,7 @@ function SermonForgeScreen({ onSave }) {
       <div style={styles.goldAccent} />
       <div style={styles.sectionHeader}>Sermon Forge</div>
       <div style={styles.sectionSub}>Craft complete, polished sermons powered by deep theological AI.</div>
+
       <div style={styles.card}>
         <div style={styles.grid2}>
           <div style={styles.inputGroup}>
@@ -1288,6 +1309,7 @@ function SermonForgeScreen({ onSave }) {
               placeholder="e.g. Walking in the Light"
             />
           </div>
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Scripture Reference</label>
             <input
@@ -1298,6 +1320,7 @@ function SermonForgeScreen({ onSave }) {
             />
           </div>
         </div>
+
         <div style={styles.inputGroup}>
           <label style={styles.label}>Sermon Angle / Focus</label>
           <textarea
@@ -1308,6 +1331,7 @@ function SermonForgeScreen({ onSave }) {
             rows={2}
           />
         </div>
+
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <select
             style={Object.assign({}, styles.select, { width: 200 })}
@@ -1326,6 +1350,7 @@ function SermonForgeScreen({ onSave }) {
               return <option key={a} value={a}>{a}</option>;
             })}
           </select>
+
           <select
             style={Object.assign({}, styles.select, { width: 140 })}
             value={mode}
@@ -1334,12 +1359,14 @@ function SermonForgeScreen({ onSave }) {
             <option value="fast">Fast Mode</option>
             <option value="deep">Deep Mode</option>
           </select>
+
           <Button onClick={handleForge} disabled={loading}>
             {loading ? "Forging..." : "Forge Sermon"}
           </Button>
         </div>
       </div>
-                  {error && (
+
+      {error && (
         <div style={styles.errorPanel}>
           {"\u26A0 "}{error}
         </div>
@@ -1366,7 +1393,7 @@ function SermonForgeScreen({ onSave }) {
           </div>
 
           <button
-            onClick={function () { setShowUpgradeModal(true); }}
+            onClick={function() { setShowUpgradeModal(true); }}
             style={{
               background: "#b8860b",
               color: "#fff",
@@ -1383,22 +1410,16 @@ function SermonForgeScreen({ onSave }) {
       )}
 
       <OutputPanel
-  text={cleanAIText(output)
-  .replace(/\*\*/g, "")
-  .replace(/\*/g, "")}
-  loading={loading}
-  error={""}
-  onCopy={function() {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(
-        cleanAIText(output).replace(/\*/g, "")
-      );
-    }
-  }}
-/>
+        text={cleanAIText(output).replace(/\*\*/g, "").replace(/\*/g, "")}
         loading={loading}
         error={""}
-        onCopy={function() { if (navigator.clipboard) navigator.clipboard.writeText(output); }}
+        onCopy={function() {
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(
+              cleanAIText(output).replace(/\*/g, "")
+            );
+          }
+        }}
         onSave={handleSave}
       />
 
@@ -1448,7 +1469,7 @@ function SermonForgeScreen({ onSave }) {
               </button>
 
               <button
-                onClick={function () { setShowUpgradeModal(false); }}
+                onClick={function() { setShowUpgradeModal(false); }}
                 style={{
                   background: "#eee",
                   color: "#333",
@@ -1783,20 +1804,9 @@ function IllustrationsScreen() {
     setResult(null);
 
     try {
-      var sys = "You are a masterful sermon illustrator. Return ONLY a valid JSON object with an 'illustrations' array, each having: title, type, content, application, scripture (optional).";
+      var sys = "You are a masterful sermon illustrator. Return ONLY raw valid JSON. Do not use markdown. Do not use code fences. Do not add ```json. Return only a JSON object with an illustrations array. Each illustration must have: title, type, content, application, scripture (optional).";
       var prompt = "Generate 3 sermon illustrations.\nType: " + illType + "\nTopic/Theme: " + topic + "\n\nReturn JSON only.";
-            var raw = JSON.stringify({
-        illustrations: [
-          {
-            title: "Test Illustration",
-            type: illType,
-            content: "This is a local test response.",
-            application: "This proves the Illustrations screen is working.",
-            scripture: "John 3:16"
-          }
-        ]
-      });
-      setResult(raw);
+      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
       setResult(raw);
     } catch (e) {
       setError(e.message || "An error occurred.");
@@ -1806,7 +1816,11 @@ function IllustrationsScreen() {
   }, [topic, illType, mode]);
 
   var illustrations = useMemo(function() {
-    var parsed = safeParseJSON(result);
+    var cleaned = typeof result === "string"
+      ? result.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "")
+      : result;
+
+    var parsed = safeParseJSON(cleaned);
     if (!parsed) return [];
     return Array.isArray(parsed.illustrations) ? parsed.illustrations : [];
   }, [result]);
@@ -1819,7 +1833,7 @@ function IllustrationsScreen() {
       <div style={styles.sectionHeader}>Illustrations</div>
       <div style={styles.sectionSub}>Generate vivid sermon illustrations, stories, and object lessons.</div>
 
-      <div style={{ ...styles.card, position: "relative", zIndex: 1 }}>
+      <div style={styles.card}>
         <div style={styles.grid2}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Sermon Topic or Theme</label>
@@ -1845,23 +1859,40 @@ function IllustrationsScreen() {
           </div>
         </div>
 
-        <div style={{ marginTop: 12, position: "relative", zIndex: 9999 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 20 }}>
+          <select
+            style={{
+              minWidth: 140,
+              height: 40,
+              borderRadius: 10,
+              border: "1px solid #d8c7a3",
+              background: "#ffffff",
+              color: CHARCOAL,
+              padding: "0 14px",
+              fontSize: 16,
+              outline: "none",
+            }}
+            value={mode}
+            onChange={function(e) { setMode(e.target.value); }}
+          >
+            <option value="fast">Fast Mode</option>
+            <option value="deep">Deep Mode</option>
+          </select>
+
           <button
             type="button"
             onClick={handleGenerate}
             disabled={loading}
             style={{
-              pointerEvents: "auto",
-              position: "relative",
-              zIndex: 9999,
               background: GOLD,
               color: "#ffffff",
-              border: "none",
-              borderRadius: 10,
-              padding: "12px 18px",
+              border: "2px solid #0b57d0",
+              borderRadius: 12,
+              padding: "10px 18px",
               fontWeight: 700,
               cursor: loading ? "not-allowed" : "pointer",
               opacity: loading ? 0.7 : 1,
+              minHeight: 40,
             }}
           >
             {loading ? "Generating..." : "Generate Illustrations"}
@@ -1882,11 +1913,11 @@ function IllustrationsScreen() {
             color: "#6b4b16",
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>
-            Upgrade required
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>
+            Deep mode is not available on the free plan.
           </div>
-          <div style={{ marginBottom: 10 }}>
-            Deep mode for Illustrations is not available on your current plan. Upgrade to continue.
+          <div style={{ marginBottom: 12, fontSize: 14 }}>
+            Upgrade your plan to unlock Deep Mode in Illustrations.
           </div>
           <button
             type="button"
@@ -1956,7 +1987,9 @@ function IllustrationsScreen() {
 
       {showRawFallback && (
         <div style={styles.outputPanel}>
-          {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+          {typeof result === "string"
+            ? result.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "")
+            : JSON.stringify(result, null, 2)}
         </div>
       )}
 
@@ -1972,98 +2005,233 @@ function IllustrationsScreen() {
 
 function LibraryScreen({ library: sermons, onDelete }) {
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [selected, setSelected] = useState(null);
 
   var filtered = useMemo(function() {
     var q = search.trim().toLowerCase();
-    if (!q) return sermons;
-    return sermons.filter(function(s) {
-      return (s.title && s.title.toLowerCase().indexOf(q) !== -1) ||
-        (s.scripture && s.scripture.toLowerCase().indexOf(q) !== -1);
+
+    var list = !q
+      ? sermons
+      : sermons.filter(function(s) {
+          return (s.title && s.title.toLowerCase().includes(q)) ||
+            (s.scripture && s.scripture.toLowerCase().includes(q));
+        });
+
+    return list.slice().sort(function(a, b) {
+      if (sort === "newest") return new Date(b.savedAt) - new Date(a.savedAt);
+      if (sort === "oldest") return new Date(a.savedAt) - new Date(b.savedAt);
+      return (a.title || "").localeCompare(b.title || "");
     });
-  }, [sermons, search]);
+  }, [sermons, search, sort]);
 
   return (
     <div>
       <div style={styles.goldAccent} />
       <div style={styles.sectionHeader}>My Sermons</div>
-      <div style={styles.sectionSub}>Your personal sermon library — saved directly from Sermon Forge.</div>
-      <div style={{ marginBottom: 20 }}>
+      <div style={styles.sectionSub}>
+        Your personal sermon library — saved from Sermon Forge.
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
         <input
-          style={styles.input}
+          style={{ ...styles.input, flex: 1 }}
           value={search}
-          onChange={function(e) { setSearch(e.target.value); }}
+          onChange={e => setSearch(e.target.value)}
           placeholder="Search by title or scripture..."
         />
+
+        <select
+          style={{ ...styles.select, width: 160 }}
+          value={sort}
+          onChange={e => setSort(e.target.value)}
+        >
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="az">A–Z</option>
+        </select>
       </div>
+
       {filtered.length === 0 && (
-        <div style={Object.assign({}, styles.card, { color: STONE_LIGHT, fontStyle: "italic", fontSize: 14, textAlign: "center", padding: "40px 20px" })}>
+        <div style={{ ...styles.card, textAlign: "center", padding: 40, color: STONE_LIGHT }}>
           {sermons.length === 0
-            ? "No sermons saved yet. Use Sermon Forge and save your first sermon."
+            ? "No sermons saved yet."
             : "No sermons match your search."}
         </div>
       )}
+
       {filtered.map(function(s) {
         return (
-          <div key={s.id} style={Object.assign({}, styles.card, { marginBottom: 14 })}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div key={s.id} style={{ ...styles.card, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: CHARCOAL, marginBottom: 4 }}>{s.title}</div>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{s.title}</div>
+
                 {s.scripture && (
-                  <div style={{ fontSize: 13, color: GOLD, marginBottom: 6 }}>{"\uD83D\uDCDA "}{s.scripture}</div>
+                  <div style={{ fontSize: 13, color: GOLD }}>
+                    {"\uD83D\uDCDA "} {s.scripture}
+                  </div>
                 )}
-                <div style={{ fontSize: 12, color: STONE_LIGHT }}>Saved {s.savedAt}</div>
+
+                <div style={{ fontSize: 12, color: STONE_LIGHT }}>
+                  Saved {s.savedAt}
+                </div>
               </div>
-              <Button variant="ghost" style={{ fontSize: 12 }} onClick={function() { onDelete(s.id); }}>Remove</Button>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setSelected(s)}
+                >
+                  View
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={() => onDelete(s.id)}
+                >
+                  Remove
+                </Button>
+              </div>
             </div>
+
             {s.content && (
-              <div style={{ marginTop: 12, padding: "12px 14px", backgroundColor: CREAM, borderRadius: 8, fontSize: 14, color: STONE, lineHeight: 1.7, maxHeight: 120, overflow: "hidden" }}>
-                {s.content.length > 300 ? s.content.slice(0, 300) + "..." : s.content}
+              <div style={{
+                marginTop: 10,
+                background: CREAM,
+                padding: 12,
+                borderRadius: 8,
+                fontSize: 14,
+                maxHeight: 120,
+                overflow: "hidden"
+              }}>
+                {s.content.slice(0, 250)}...
               </div>
             )}
           </div>
         );
       })}
+
+      {selected && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <div style={{ fontWeight: 700, fontSize: 18 }}>
+              {selected.title}
+            </div>
+
+            <div style={{ margin: "10px 0", color: GOLD }}>
+              {selected.scripture}
+            </div>
+
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+              {selected.content}
+            </div>
+
+            <Button onClick={() => setSelected(null)}>Close</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function SeriesPlannerScreen() {
+function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }) {
   const [seriesTitle, setSeriesTitle] = useState("");
   const [theme, setTheme] = useState("");
   const [weeks, setWeeks] = useState("4");
+  const [mode, setMode] = useState("fast");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handlePlan = useCallback(async function() {
+    setError("");
+    setShowUpgradeMessage(false);
+    setShowUpgradeModal(false);
+    setResult(null);
+
     if (!seriesTitle.trim() && !theme.trim()) {
       setError("Please enter a series title or theme.");
       return;
     }
+
+    const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
+
+    if (!usageCheck.ok) {
+      setError(usageCheck.message);
+      setShowUpgradeMessage(true);
+      return;
+    }
+
     setLoading(true);
-    setError("");
-    setResult(null);
+
     try {
-      var sys = "You are an expert sermon series strategist. Return ONLY a valid JSON object with: series_title, overview, sermons (array of {week, title, scripture, summary, key_point}).";
-      var prompt = "Plan a " + weeks + "-week sermon series.\nTitle: " + (seriesTitle || theme) + "\nTheme/Focus: " + (theme || seriesTitle) + "\n\nReturn JSON only.";
-            var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
+      var sys = "You are an expert sermon series strategist. Return ONLY raw valid JSON. Do not use markdown. Do not use code fences. Do not add ```json. Return only a JSON object with: series_title, overview, sermons (array of objects with week, title, scripture, summary, key_point, progression).";
+
+      var prompt =
+        "Create a complete " + weeks + "-week sermon series.\n" +
+        "Series Title: " + (seriesTitle || theme) + "\n" +
+        "Central Theme: " + (theme || seriesTitle) + "\n\n" +
+        "Requirements:\n" +
+        "1. Each week must build on the previous week.\n" +
+        "2. Each week must include a strong sermon title.\n" +
+        "3. Each week must include a main scripture.\n" +
+        "4. Each week must include a concise summary.\n" +
+        "5. Each week must include one key point.\n" +
+        "6. Each week must include a progression note showing how it advances the series.\n\n" +
+        "Return JSON only.";
+
+      var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
       setResult(raw);
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
       setLoading(false);
     }
-  }, [seriesTitle, theme, weeks]);
+  }, [seriesTitle, theme, weeks, mode]);
+
+  var cleanedResult = useMemo(function() {
+    if (typeof result !== "string") return result;
+
+    var text = result.trim();
+
+    text = text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    return text;
+  }, [result]);
 
   var plan = useMemo(function() {
-    return safeParseJSON(result);
-  }, [result]);
+    return safeParseJSON(cleanedResult);
+  }, [cleanedResult]);
+
+  function handleSaveSeries() {
+  if (!plan || !Array.isArray(plan.sermons)) return;
+
+  plan.sermons.forEach(function(s, i) {
+    onSaveSeries({
+      title: s.title || ("Week " + (s.week || i + 1)),
+      scripture: s.scripture || "",
+      content:
+        (s.summary || "") +
+        (s.key_point ? "\n\nKey Point: " + s.key_point : ""),
+      savedAt: new Date().toISOString()
+    });
+  });
+}
 
   return (
     <div>
       <div style={styles.goldAccent} />
       <div style={styles.sectionHeader}>Series Planner</div>
-      <div style={styles.sectionSub}>Architect a complete multi-week sermon series with scripture and key points.</div>
+      <div style={styles.sectionSub}>Architect a complete multi-week sermon series with scripture and progression.</div>
+
       <div style={styles.card}>
         <div style={styles.grid2}>
           <div style={styles.inputGroup}>
@@ -2072,20 +2240,22 @@ function SeriesPlannerScreen() {
               style={styles.input}
               value={seriesTitle}
               onChange={function(e) { setSeriesTitle(e.target.value); }}
-              placeholder="e.g. Unshakeable Faith"
+              placeholder="e.g. The God Who Heals"
             />
           </div>
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Central Theme</label>
             <input
               style={styles.input}
               value={theme}
               onChange={function(e) { setTheme(e.target.value); }}
-              placeholder="e.g. Perseverance through trials"
+              placeholder="e.g. Jesus' healing ministry"
             />
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+
+        <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "center" }}>
           <select
             style={Object.assign({}, styles.select, { width: 140 })}
             value={weeks}
@@ -2095,60 +2265,200 @@ function SeriesPlannerScreen() {
               return <option key={n} value={n}>{n} Weeks</option>;
             })}
           </select>
-          <Button onClick={handlePlan} disabled={loading}>
+
+          <select
+            style={Object.assign({}, styles.select, { width: 140 })}
+            value={mode}
+            onChange={function(e) { setMode(e.target.value); }}
+          >
+            <option value="fast">Fast Mode</option>
+            <option value="deep">Deep Mode</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={handlePlan}
+            disabled={loading}
+            style={{
+              background: GOLD,
+              color: "#ffffff",
+              border: "2px solid #0b57d0",
+              borderRadius: 12,
+              padding: "10px 18px",
+              fontWeight: 700,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
             {loading ? "Planning..." : "Plan Series"}
-          </Button>
+          </button>
         </div>
       </div>
-      {error && <div style={styles.errorPanel}>{"\u26A0 "}{error}</div>}
-      {loading && !result && (
-        <div style={styles.outputPanel}>
-          <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>Architecting your series...</span>
+
+      {error && (
+        <div style={styles.errorPanel}>
+          {"\u26A0 "}{error}
         </div>
       )}
-      {plan && (
+
+      {showUpgradeMessage && (
+        <div
+          style={{
+            background: "#fff3e0",
+            border: "1px solid #e0c48f",
+            borderRadius: 10,
+            padding: 16,
+            marginTop: 12,
+            color: "#6b4b16",
+          }}
+        >
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>
+            Deep mode is not available on the free plan.
+          </div>
+          <div style={{ marginBottom: 12, fontSize: 14 }}>
+            Upgrade your plan to unlock Deep Mode in Series Planner.
+          </div>
+          <button
+            type="button"
+            onClick={function() { setShowUpgradeModal(true); }}
+            style={{
+              background: GOLD,
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 10,
+              padding: "10px 16px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Upgrade Now
+          </button>
+        </div>
+      )}
+
+      {loading && !result && (
+        <div style={styles.outputPanel}>
+          <span style={{ color: STONE_LIGHT, fontStyle: "italic" }}>
+            Architecting your series...
+          </span>
+        </div>
+      )}
+
+      {plan && Array.isArray(plan.sermons) && (
         <div style={{ marginTop: 20 }}>
           <div style={Object.assign({}, styles.card, { marginBottom: 16 })}>
-            <div style={{ fontWeight: 700, fontSize: 20, color: CHARCOAL, marginBottom: 6 }}>
-              {plan.series_title || seriesTitle}
-            </div>
+           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+  <div style={{ fontWeight: 700, fontSize: 20, color: CHARCOAL }}>
+    {plan.series_title || seriesTitle || theme}
+  </div>
+
+  <button
+    onClick={handleSaveSeries}
+    style={{
+      background: GOLD,
+      color: "#fff",
+      border: "none",
+      borderRadius: 8,
+      padding: "8px 14px",
+      fontWeight: 700,
+      cursor: "pointer"
+    }}
+  >
+    Save Series
+  </button>
+</div>
             {plan.overview && (
-              <div style={{ fontSize: 14, color: STONE, lineHeight: 1.7 }}>{plan.overview}</div>
+              <div style={{ fontSize: 14, color: STONE, lineHeight: 1.7 }}>
+                {plan.overview}
+              </div>
             )}
           </div>
-          {Array.isArray(plan.sermons) && plan.sermons.map(function(s, i) {
+
+          {plan.sermons.map(function(s, i) {
             return (
               <div key={i} style={Object.assign({}, styles.card, { marginBottom: 12 })}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                  <div style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: "50%",
-                    backgroundColor: GOLD_PALE,
-                    border: "2px solid " + GOLD,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 700,
-                    color: GOLD,
-                    fontSize: 16,
-                    flexShrink: 0,
-                  }}>
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      backgroundColor: GOLD_PALE,
+                      border: "2px solid " + GOLD,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: 700,
+                      color: GOLD,
+                      fontSize: 16,
+                      flexShrink: 0,
+                    }}
+                  >
                     {s.week || (i + 1)}
                   </div>
+
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 16, color: CHARCOAL, marginBottom: 2 }}>{s.title}</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: CHARCOAL, marginBottom: 2 }}>
+                      {s.title}
+                    </div>
+
                     {s.scripture && (
-                      <div style={{ fontSize: 13, color: GOLD, marginBottom: 6 }}>{"\uD83D\uDCDA "}{s.scripture}</div>
+                      <div style={{ fontSize: 13, color: GOLD, marginBottom: 6 }}>
+                        {"\uD83D\uDCDA "}{s.scripture}
+                      </div>
                     )}
+
                     {s.summary && (
-                      <div style={{ fontSize: 14, color: STONE, lineHeight: 1.6, marginBottom: 6 }}>{s.summary}</div>
+                      <div style={{ fontSize: 14, color: STONE, lineHeight: 1.6, marginBottom: 6 }}>
+                        {s.summary}
+                      </div>
                     )}
+
                     {s.key_point && (
-                      <div style={{ fontSize: 13, color: CHARCOAL, padding: "6px 12px", backgroundColor: GOLD_PALE, borderRadius: 6, display: "inline-block" }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: CHARCOAL,
+                          padding: "6px 12px",
+                          backgroundColor: GOLD_PALE,
+                          borderRadius: 6,
+                          display: "inline-block",
+                          marginBottom: 6,
+                        }}
+                      >
                         <strong>Key Point:</strong>{" "}{s.key_point}
                       </div>
                     )}
+
+                    {s.progression && (
+                      <div style={{ fontSize: 12, color: STONE_LIGHT, marginTop: 4 }}>
+                        <strong>Progression:</strong>{" "}{s.progression}
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 10 }}>
+  <button
+    onClick={function () {
+      setForgePrefill({
+        title: s.title,
+        scripture: s.scripture,
+        angle: s.key_point
+      });
+      setCurrentScreen("sermon-forge");
+    }}
+    style={{
+      background: GOLD,
+      color: "#fff",
+      border: "none",
+      borderRadius: 8,
+      padding: "8px 12px",
+      fontWeight: 700,
+      cursor: "pointer"
+    }}
+  >
+    Generate Sermon
+  </button>
+</div>
                   </div>
                 </div>
               </div>
@@ -2156,10 +2466,20 @@ function SeriesPlannerScreen() {
           })}
         </div>
       )}
-      {result && !plan && (
+
+      {result && !(plan && Array.isArray(plan.sermons)) && (
         <div style={styles.outputPanel}>
-          {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
+          {typeof cleanedResult === "string"
+            ? cleanedResult
+            : JSON.stringify(cleanedResult, null, 2)}
         </div>
+      )}
+
+      {showUpgradeModal && (
+        <UpgradeModal
+          open={showUpgradeModal}
+          onClose={function() { setShowUpgradeModal(false); }}
+        />
       )}
     </div>
   );
@@ -2439,6 +2759,7 @@ export default function SermonCraftPro() {
   const [viewMode, setViewMode] = useState("pastor");
   const [library, setLibrary] = useState([]);
   const libCounter = useRef(100);
+  const [forgePrefill, setForgePrefill] = useState(null);
 
   const handleSaveToLibrary = useCallback(function(sermon) {
     libCounter.current += 1;
@@ -2477,7 +2798,7 @@ export default function SermonCraftPro() {
       case "topic-engine":
         return <TopicEngineScreen />;
       case "sermon-forge":
-        return <SermonForgeScreen onSave={handleSaveToLibrary} />;
+  return <SermonForgeScreen onSave={handleSaveToLibrary} prefill={forgePrefill} />;
       case "word-study":
         return <WordStudyScreen />;
       case "illustrations":
@@ -2485,7 +2806,13 @@ export default function SermonCraftPro() {
       case "library":
         return <LibraryScreen library={library} onDelete={handleDeleteFromLibrary} />;
       case "series-planner":
-        return <SeriesPlannerScreen />;
+  return (
+  <SeriesPlannerScreen
+    onSaveSeries={handleSaveToLibrary}
+    setForgePrefill={setForgePrefill}
+    setCurrentScreen={setCurrentScreen}
+  />
+);
       case "church-overview":
         return <ChurchOverviewScreen />;
       case "branches":

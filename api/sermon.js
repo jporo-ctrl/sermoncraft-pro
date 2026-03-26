@@ -1,8 +1,22 @@
 export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
   try {
     const { prompt, sys, mode } = req.body;
 
-    const maxTokens = mode === "deep" ? 6000 : 3000;
+    const isDeep = mode === "deep";
+    const model = isDeep ? "claude-sonnet-4-20250514" : "claude-haiku-4-5-20251001";
+    const maxTokens = isDeep ? 12000 : 8000;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -12,7 +26,7 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-3-sonnet", // ← your original working model
+        model: model,
         max_tokens: maxTokens,
         temperature: 0.7,
         system: sys,
@@ -41,7 +55,6 @@ export default async function handler(req, res) {
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
-
       const lines = chunk.split("\n");
 
       for (let line of lines) {
@@ -52,15 +65,12 @@ export default async function handler(req, res) {
 
         try {
           const parsed = JSON.parse(json);
-
-          // ✅ Correct extraction for Messages streaming
           if (parsed.type === "content_block_delta") {
             const text = parsed.delta?.text;
             if (text) {
               res.write(text);
             }
           }
-
         } catch (e) {}
       }
     }

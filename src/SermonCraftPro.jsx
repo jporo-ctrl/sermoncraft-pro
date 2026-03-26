@@ -1,6 +1,18 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { PLAN_LIMITS, getPlanLimits } from "./lib/plans";
-import { canUseTool } from "./lib/usage";
+import { loadUsage, incrementUsage, canUseTool } from "./lib/usage";
+function pingAPIs() {
+  var base = window.location.hostname === "localhost"
+    ? "https://sermoncraft-pro.vercel.app"
+    : "";
+
+  fetch(base + "/api/ping").catch(function() {});
+  fetch(base + "/api/forge-json", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: "ping", sys: "ping", mode: "fast" })
+  }).catch(function() {});
+}
 
 function cleanAIText(text) {
   if (!text) return "";
@@ -103,20 +115,32 @@ const CURRENT_USER = {
 
 // ─── API HELPERS ──────────────────────────────────────────────────────────────
 
-async function callSermonAPI({ prompt, sys, mode = "fast", onChunk }) {
-  const response = await fetch("/api/sermon", {
+async function callSermonAPI(prompt, systemPrompt = "", useDeep = false, onChunk = null) {
+  const currentUrl = window.location.href;
+  const isLocal =
+    currentUrl.includes("localhost") ||
+    currentUrl.includes("127.0.0.1") ||
+    currentUrl.includes("0.0.0.0");
+
+  const url = isLocal
+    ? "https://sermoncraft-pro.vercel.app/api/sermon"
+    : "/api/sermon";
+
+  const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, sys, mode }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      prompt: prompt,
+      sys: systemPrompt,
+      mode: useDeep ? "deep" : "fast",
+    }),
   });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error("API error " + response.status + ": " + errorText);
-  }
-
-  if (!response.body) {
-    throw new Error("Response body is missing — streaming not supported.");
+    const errorText = await response.text();
+    throw new Error(`API error ${response.status}: ${errorText}`);
   }
 
   const reader = response.body.getReader();
@@ -610,89 +634,101 @@ function safeParseJSON(raw) {
 function DashboardScreen({ user, library, setCurrentScreen }) {
   var recentSermons = library.slice(0, 3);
   var nameParts = user.name.split(" ");
-  var firstName = nameParts.length > 1 ? nameParts[0] : nameParts[0];
+  var firstName = nameParts[0];
   const limits = getPlanLimits(CURRENT_USER.plan || "free");
   const currentPlan = CURRENT_USER.plan || "free";
+  const currentUsage = loadUsage();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   return (
-    <div style={styles.container}>
+    <div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20, marginBottom: 24 }}>
+        <StatCard value={library.length} label="Saved Sermons" icon={"📜"} />
+        <StatCard value="48" label="Total This Year" icon={"📅"} />
+        <StatCard value="3" label="Active Series" icon={"🎯"} />
+        <StatCard value="4,200" label="Congregation" icon={"🙏"} />
+      </div>
+
       <div
         style={{
           background: "#fffaf2",
           border: "1px solid #e8dcc8",
           borderRadius: 12,
-          padding: 16,
-          marginBottom: 20,
-          boxShadow: "0 2px 12px rgba(44,36,22,0.08)"
+          padding: "18px 24px",
+          marginBottom: 24,
+          boxShadow: "0 2px 12px rgba(44,36,22,0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 16,
         }}
       >
-        <div style={{ fontWeight: "bold", marginBottom: 10 }}>Plan Usage</div>
-        <div style={{ marginBottom: 10 }}><strong>Current Plan:</strong> {currentPlan}</div>
-        <div><strong>Plan Name:</strong> {limits.name}</div>
-        <div style={{ fontWeight: "bold", marginBottom: 10 }}>Plan Usage</div>
-<div style={{ marginBottom: 10 }}><strong>Current Plan:</strong> {currentPlan}</div>
-<div><strong>Plan Name:</strong> {limits.name}</div>
-
-<div style={{ marginTop: 12 }}>
-  <strong>Switch Plan (dev):</strong>
-  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-    {["free", "starter", "growth", "pro"].map(function(p) {
-      return (
-        <button
-          key={p}
-          onClick={function() {
-            CURRENT_USER.plan = p;
-            window.location.reload();
-          }}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 6,
-            border: "1px solid #ccc",
-            background: currentPlan === p ? "#b8860b" : "#fff",
-            color: currentPlan === p ? "#fff" : "#333",
-            cursor: "pointer",
-            fontSize: 12
-          }}
-        >
-          {p}
-        </button>
-      );
-    })}
-  </div>
-</div>
-        <div><strong>Fast Generations:</strong> {limits.fast}</div>
-        <div><strong>Deep Generations:</strong> {limits.deep}</div>
-        <div><strong>Library Save:</strong> {limits.saveLibrary ? "Yes" : "No"}</div>
-        <div><strong>Series Planner:</strong> {limits.seriesPlanner ? "Yes" : "No"}</div>
-        <div><strong>Team Seats:</strong> {limits.teamSeats}</div>
+        <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: STONE_LIGHT, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Current Plan</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: CHARCOAL }}>{limits.name}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: STONE_LIGHT, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Fast Used</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: CHARCOAL }}>{currentUsage.fast_used} <span style={{ fontSize: 12, color: STONE_LIGHT }}>/ {limits.fast}</span></div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: STONE_LIGHT, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Deep Used</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: CHARCOAL }}>{currentUsage.deep_used} <span style={{ fontSize: 12, color: STONE_LIGHT }}>/ {limits.deep <= 0 ? "—" : limits.deep}</span></div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: STONE_LIGHT, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Library</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: CHARCOAL }}>{limits.saveLibrary ? "✓ Enabled" : "✗ Locked"}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: STONE_LIGHT, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Series Planner</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: CHARCOAL }}>{limits.seriesPlanner ? "✓ Enabled" : "✗ Locked"}</div>
+          </div>
+        </div>
 
         <button
           style={{
-            marginTop: 14,
-            background: "#b8860b",
+            background: GOLD,
             color: "white",
             border: "none",
             borderRadius: 8,
-            padding: "10px 14px",
+            padding: "10px 20px",
             cursor: "pointer",
-            fontWeight: "bold"
+            fontWeight: "bold",
+            fontSize: 13,
+            fontFamily: "'Georgia', serif",
+            flexShrink: 0,
           }}
-          onClick={() => setShowUpgradeModal(true)}
+          onClick={function() { setShowUpgradeModal(true); }}
         >
-          Upgrade Now
+          Upgrade Plan
         </button>
       </div>
 
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>Good morning, {firstName}.</div>
-      <div style={styles.sectionSub}>Your ministry tools are ready. What will you build today?</div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 20, marginBottom: 28 }}>
-        <StatCard value={library.length} label="Saved Sermons" icon={"📜"} />
-        <StatCard value="48" label="Total This Year" icon={"📅"} />
-        <StatCard value="3" label="Active Series" icon={"🎯"} />
-        <StatCard value="4,200" label="Congregation" icon={"🙏"} />
+      <div style={{ marginBottom: 6, fontSize: 13, color: STONE_LIGHT }}>
+        <strong style={{ color: STONE }}>Dev:</strong>{" "}
+        {["free", "starter", "growth", "pro"].map(function(p) {
+          return (
+            <button
+              key={p}
+              onClick={function() { CURRENT_USER.plan = p; window.location.reload(); }}
+              style={{
+                marginRight: 6,
+                padding: "3px 10px",
+                borderRadius: 6,
+                border: "1px solid #ccc",
+                background: currentPlan === p ? GOLD : "#fff",
+                color: currentPlan === p ? "#fff" : "#333",
+                cursor: "pointer",
+                fontSize: 11,
+              }}
+            >
+              {p}
+            </button>
+          );
+        })}
       </div>
 
       <div style={styles.grid2}>
@@ -767,7 +803,7 @@ function DashboardScreen({ user, library, setCurrentScreen }) {
       </div>
 
       {showUpgradeModal && (
-        <UpgradeModal onClose={() => setShowUpgradeModal(false)} />
+        <UpgradeModal onClose={function() { setShowUpgradeModal(false); }} />
       )}
     </div>
   );
@@ -781,33 +817,33 @@ function AIPastorScreen() {
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const currentUsage = { fast_used: 0, deep_used: 0 };
 
   const handleGenerate = useCallback(async function () {
-  setError("");
-  setShowUpgradeMessage(false);
+    setError("");
+    setShowUpgradeMessage(false);
 
-  const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
+    const currentUsage = loadUsage();
+    const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
 
-  if (!usageCheck.ok) {
-    setError(usageCheck.message);
-    setShowUpgradeMessage(true);
-    return;
-  }
+    if (!usageCheck.ok) {
+      setError(usageCheck.message);
+      setShowUpgradeMessage(true);
+      return;
+    }
 
-  setLoading(true);
-  setOutput("");
+    setLoading(true);
+    setOutput("");
+
     try {
       var sys = "You are a deeply knowledgeable, pastoral AI ministry advisor. Speak with wisdom, biblical grounding, warmth, and clarity. Provide thoughtful, substantive pastoral guidance.";
       var prompt = "Pastoral Question / Topic: " + topic + (context.trim() ? "\n\nAdditional Context: " + context : "");
-      await callSermonAPI({
-  prompt: prompt,
-  sys: sys,
-  mode: mode,
-  onChunk: function(acc) {
-  setOutput(acc);
-}
-});
+
+      await callSermonAPI(prompt, sys, mode === "deep", function(acc) {
+        setOutput(acc);
+      });
+
+      incrementUsage(mode);
+
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -817,8 +853,6 @@ function AIPastorScreen() {
 
   return (
     <div>
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>AI Pastor</div>
       <div style={styles.sectionSub}>Ask a pastoral question and receive biblically-grounded guidance.</div>
       <div style={styles.card}>
         <div style={styles.inputGroup}>
@@ -991,7 +1025,7 @@ function TopicEngineScreen({ setForgePrefill, setCurrentScreen }) {
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const currentUsage = { fast_used: 0, deep_used: 0 };
+  const currentUsage = loadUsage();
 
   const handleGenerate = useCallback(async function() {
     setError("");
@@ -1004,6 +1038,7 @@ function TopicEngineScreen({ setForgePrefill, setCurrentScreen }) {
       return;
     }
 
+    const currentUsage = loadUsage();
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, "fast");
 
     if (!usageCheck.ok) {
@@ -1027,7 +1062,6 @@ function TopicEngineScreen({ setForgePrefill, setCurrentScreen }) {
 
       var text = typeof raw === "string" ? raw : JSON.stringify(raw);
       text = text.trim();
-
       text = text
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
@@ -1036,12 +1070,14 @@ function TopicEngineScreen({ setForgePrefill, setCurrentScreen }) {
 
       var parsed = JSON.parse(text);
       var parsedTopics = Array.isArray(parsed.topics) ? parsed.topics : [];
-
       setTopics(parsedTopics);
 
       if (!parsedTopics.length) {
         setError("No topics were returned.");
       }
+
+      incrementUsage("fast");
+
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -1053,8 +1089,6 @@ function TopicEngineScreen({ setForgePrefill, setCurrentScreen }) {
 
   return (
     <div>
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>Topic Engine</div>
       <div style={styles.sectionSub}>Generate compelling sermon topic ideas with Scripture anchors.</div>
 
       <div style={styles.card}>
@@ -1289,13 +1323,14 @@ function SermonForgeScreen({ onSave, prefill }) {
   const [scripture, setScripture] = useState(prefill?.scripture || "");
   const [angle, setAngle] = useState(prefill?.angle || "");
   const [audience, setAudience] = useState("General Congregation");
+  const [bibleVersion, setBibleVersion] = useState("NIV");
   const [mode, setMode] = useState("deep");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const currentUsage = { fast_used: 0, deep_used: 0 };
+  const [copyStatus, setCopyStatus] = useState("");
 
   useEffect(function() {
     if (prefill) {
@@ -1305,8 +1340,15 @@ function SermonForgeScreen({ onSave, prefill }) {
       setOutput("");
       setError("");
       setShowUpgradeMessage(false);
+      setCopyStatus("");
     }
   }, [prefill]);
+
+  const cleanedOutput = cleanAIText(output)
+    .replace(/\*\*/g, "")
+    .replace(/\*/g, "")
+    .replace(/END OF SERMON/g, "")
+    .trim();
 
   const handleForge = useCallback(async function() {
     if (!title.trim() && !scripture.trim()) {
@@ -1316,74 +1358,157 @@ function SermonForgeScreen({ onSave, prefill }) {
 
     setError("");
     setShowUpgradeMessage(false);
+    setLoading(true);
+    setOutput("");
 
+    const currentUsage = loadUsage();
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
 
     if (!usageCheck.ok) {
+      setLoading(false);
       setError(usageCheck.message);
       setShowUpgradeMessage(true);
       return;
     }
 
-    setLoading(true);
-    setOutput("");
-
     try {
-      var sys = "You are an expert sermon writer with deep theological training. Write complete, structured, compelling sermons with introduction, three body points, illustrations, and a powerful conclusion. Do not stop mid-sermon. End with the exact words: END OF SERMON.";
+      var sys =
+        "You are an expert sermon writer with deep theological training and 30 years of preaching experience. " +
+        "Write complete, fully developed, manuscript-length sermons suitable for a 60-minute Sunday service. " +
+        "Each sermon must be detailed, rich with biblical exposition, illustrations, stories, application points, and pastoral warmth. " +
+        "When quoting or referencing scripture, always use the " + bibleVersion + " translation. " +
+        "Do not summarize or abbreviate any section. Write every point in full. " +
+        "Do not stop mid-sermon under any circumstances. End with the exact words: END OF SERMON.";
 
-var prompt =
-  "Write a complete sermon.\n" +
-  "Title: " + (title || "(untitled)") + "\n" +
-  "Scripture: " + (scripture || "(none specified)") + "\n" +
-  "Angle/Focus: " + (angle || "general") + "\n" +
-  "Audience: " + audience + "\n\n" +
-  "Requirements:\n" +
-  "1. Include a clear introduction.\n" +
-  "2. Include exactly 3 main body points.\n" +
-  "3. Include a strong conclusion.\n" +
-  "4. Finish with the exact words: END OF SERMON";
+      var prompt =
+        "Write a complete, manuscript-length sermon suitable for a 60-minute Sunday service.\n" +
+        "Title: " + (title || "(untitled)") + "\n" +
+        "Scripture: " + (scripture || "(none specified)") + "\n" +
+        "Bible Version: " + bibleVersion + "\n" +
+        "Angle/Focus: " + (angle || "general") + "\n" +
+        "Audience: " + audience + "\n\n" +
+        "Requirements:\n" +
+        "1. Write a full introduction (at least 3-4 paragraphs) that opens with a story or illustration, establishes the need, and introduces the scripture.\n" +
+        "2. Write exactly 3 main body points. Each point must include:\n" +
+        "   - A clear point statement\n" +
+        "   - Full biblical exposition (at least 3-4 paragraphs) using " + bibleVersion + " translation\n" +
+        "   - A real-world illustration or story\n" +
+        "   - Practical application for the congregation\n" +
+        "3. Write a full conclusion (at least 3 paragraphs) with a call to action and closing prayer.\n" +
+        "4. Total length should be enough to fill a 60-minute sermon delivery.\n" +
+        "5. Finish with the exact words: END OF SERMON";
 
-      await callSermonAPI({
-        prompt: prompt,
-        sys: sys,
-        mode: mode,
-        onChunk: function(acc) {
-          setOutput(acc);
-        }
+      await callSermonAPI(prompt, sys, mode === "deep", function(accumulated) {
+        setOutput(accumulated);
       });
+
+      incrementUsage(mode);
+
     } catch (e) {
-      setError(e.message || "An error occurred.");
+      setError(e.message || "Failed to fetch");
     } finally {
       setLoading(false);
     }
-  }, [title, scripture, angle, audience, mode]);
+  }, [title, scripture, angle, audience, bibleVersion, mode]);
 
- const handleSave = useCallback(function() {
-  if (!output || loading) return;
+  const handleSave = useCallback(function() {
+    if (!output || loading) return;
 
-  if (!output.includes("END OF SERMON")) {
-    setError("Sermon is not complete yet. Please wait until generation finishes.");
-    return;
-  }
+    if (!output.includes("END OF SERMON")) {
+      setError("Sermon is not complete yet. Please wait until generation finishes.");
+      return;
+    }
 
-  var cleanedContent = cleanAIText(output)
-    .replace(/\*\*/g, "")
-    .replace(/\*/g, "")
-    .replace(/END OF SERMON/g, "")
-    .trim();
+    var cleanedContent = cleanAIText(output)
+      .replace(/\*\*/g, "")
+      .replace(/\*/g, "")
+      .replace(/END OF SERMON/g, "")
+      .trim();
 
-  onSave({
-    title: title.trim() || "Untitled Sermon",
-    scripture: scripture.trim(),
-    content: cleanedContent,
-    savedAt: new Date().toLocaleDateString(),
-  });
-}, [output, loading, title, scripture, onSave]);
+    onSave({
+      title: title.trim() || "Untitled Sermon",
+      scripture: scripture.trim(),
+      content: cleanedContent,
+      savedAt: new Date().toLocaleDateString(),
+      tags: [],
+      sourceTool: "sermon-forge",
+      sourceTopic: angle.trim() || title.trim() || "",
+      seriesId: null,
+      seriesTitle: null,
+      seriesWeek: null,
+    });
+  }, [output, loading, title, scripture, angle, onSave]);
+
+  const handleCopySermon = useCallback(async function() {
+    if (!cleanedOutput) return;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(cleanedOutput);
+        setCopyStatus("Copied");
+        setTimeout(function() { setCopyStatus(""); }, 2000);
+      } else {
+        setCopyStatus("Copy not supported in this browser");
+        setTimeout(function() { setCopyStatus(""); }, 2500);
+      }
+    } catch (e) {
+      setCopyStatus("Copy failed");
+      setTimeout(function() { setCopyStatus(""); }, 2500);
+    }
+  }, [cleanedOutput]);
+
+  const handleDownloadPDF = useCallback(function() {
+    if (!cleanedOutput) return;
+
+    var printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      setError("Popup was blocked. Please allow popups and try again.");
+      return;
+    }
+
+    var sermonTitle = (title || "Untitled Sermon").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    var sermonScripture = (scripture || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    var sermonBody = cleanedOutput
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br/>");
+
+    var html =
+      "<!DOCTYPE html>" +
+      "<html>" +
+      "<head>" +
+      "<title>" + sermonTitle + "</title>" +
+      "<style>" +
+      "body{font-family:Arial,sans-serif;padding:40px;color:#111;line-height:1.6;}" +
+      "h1{font-size:28px;margin-bottom:8px;}" +
+      ".meta{margin-bottom:24px;color:#444;font-size:14px;}" +
+      ".content{white-space:normal;font-size:16px;}" +
+      "@media print{body{padding:24px;}}" +
+      "</style>" +
+      "</head>" +
+      "<body>" +
+      "<h1>" + sermonTitle + "</h1>" +
+      "<div class='meta'>" +
+      (sermonScripture ? "<div><strong>Scripture:</strong> " + sermonScripture + "</div>" : "") +
+      "<div><strong>Bible Version:</strong> " + bibleVersion + "</div>" +
+      "<div><strong>Audience:</strong> " + audience + "</div>" +
+      "<div><strong>Generated:</strong> " + new Date().toLocaleString() + "</div>" +
+      "</div>" +
+      "<div class='content'>" + sermonBody + "</div>" +
+      "<script>" +
+      "window.onload = function(){ window.print(); };" +
+      "</script>" +
+      "</body>" +
+      "</html>";
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  }, [cleanedOutput, title, scripture, audience, bibleVersion]);
 
   return (
     <div>
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>Sermon Forge</div>
       <div style={styles.sectionSub}>Craft complete, polished sermons powered by deep theological AI.</div>
 
       <div style={styles.card}>
@@ -1440,6 +1565,25 @@ var prompt =
           </select>
 
           <select
+            style={Object.assign({}, styles.select, { width: 160 })}
+            value={bibleVersion}
+            onChange={function(e) { setBibleVersion(e.target.value); }}
+          >
+            {[
+              "KJV",
+              "NIV",
+              "ESV",
+              "NKJV",
+              "NLT",
+              "NASB",
+              "AMP",
+              "MSG",
+            ].map(function(v) {
+              return <option key={v} value={v}>{v}</option>;
+            })}
+          </select>
+
+          <select
             style={Object.assign({}, styles.select, { width: 140 })}
             value={mode}
             onChange={function(e) { setMode(e.target.value); }}
@@ -1475,11 +1619,9 @@ var prompt =
           <div style={{ fontWeight: "bold", marginBottom: 6 }}>
             Deep mode is not available on the free plan.
           </div>
-
           <div style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 12 }}>
             Upgrade your plan to unlock Deep Mode in Sermon Forge.
           </div>
-
           <button
             onClick={function() { setShowUpgradeModal(true); }}
             style={{
@@ -1498,18 +1640,54 @@ var prompt =
       )}
 
       <OutputPanel
-        text={cleanAIText(output).replace(/\*\*/g, "").replace(/\*/g, "")}
+        text={cleanedOutput}
         loading={loading}
         error={""}
-        onCopy={function() {
-          if (navigator.clipboard) {
-            navigator.clipboard.writeText(
-              cleanAIText(output).replace(/\*/g, "")
-            );
-          }
-        }}
+        onCopy={handleCopySermon}
         onSave={handleSave}
       />
+
+      {!!cleanedOutput && !loading && (
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            marginTop: 12,
+            marginBottom: 4,
+          }}
+        >
+          <button
+            onClick={handleCopySermon}
+            style={{
+              background: "#f3f4f6",
+              color: "#222",
+              border: "1px solid #d1d5db",
+              borderRadius: 8,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+          >
+            {copyStatus === "Copied" ? "Copied" : "Copy Sermon"}
+          </button>
+
+          <button
+            onClick={handleDownloadPDF}
+            style={{
+              background: "#f3f4f6",
+              color: "#222",
+              border: "1px solid #d1d5db",
+              borderRadius: 8,
+              padding: "10px 14px",
+              cursor: "pointer",
+              fontWeight: "bold"
+            }}
+          >
+            Download PDF
+          </button>
+        </div>
+      )}
 
       {showUpgradeModal && (
         <div
@@ -1536,11 +1714,9 @@ var prompt =
             <div style={{ fontWeight: "bold", fontSize: 18, marginBottom: 10 }}>
               Upgrade your plan
             </div>
-
             <div style={{ fontSize: 14, lineHeight: 1.6, color: "#444", marginBottom: 20 }}>
               Deep mode is available on paid plans. Upgrade to unlock richer sermon generation and advanced tools.
             </div>
-
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
                 style={{
@@ -1555,7 +1731,6 @@ var prompt =
               >
                 Stripe checkout will be connected next
               </button>
-
               <button
                 onClick={function() { setShowUpgradeModal(false); }}
                 style={{
@@ -1588,7 +1763,7 @@ function WordStudyScreen({ setForgePrefill, setCurrentScreen }) {
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const currentUsage = { fast_used: 0, deep_used: 0 };
+  const currentUsage = loadUsage();
 
   const handleStudy = useCallback(async function() {
     setError("");
@@ -1601,6 +1776,7 @@ function WordStudyScreen({ setForgePrefill, setCurrentScreen }) {
       return;
     }
 
+    const currentUsage = loadUsage();
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
 
     if (!usageCheck.ok) {
@@ -1624,7 +1800,6 @@ function WordStudyScreen({ setForgePrefill, setCurrentScreen }) {
 
       var text = typeof raw === "string" ? raw : JSON.stringify(raw);
       text = text.trim();
-
       text = text
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
@@ -1633,6 +1808,9 @@ function WordStudyScreen({ setForgePrefill, setCurrentScreen }) {
 
       var parsed = JSON.parse(text);
       setStudy(parsed);
+
+      incrementUsage(mode);
+
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -1644,8 +1822,6 @@ function WordStudyScreen({ setForgePrefill, setCurrentScreen }) {
 
   return (
     <div>
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>Word Study</div>
       <div style={styles.sectionSub}>Explore the original Hebrew and Greek meanings of Scripture.</div>
 
       <div style={styles.card}>
@@ -1906,7 +2082,7 @@ function IllustrationsScreen() {
   const [mode, setMode] = useState("fast");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const currentUsage = { fast_used: 0, deep_used: 0 };
+  const currentUsage = loadUsage();
 
   const handleGenerate = useCallback(async function() {
     setError("");
@@ -1918,6 +2094,7 @@ function IllustrationsScreen() {
       return;
     }
 
+    const currentUsage = loadUsage();
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
 
     if (!usageCheck.ok) {
@@ -1932,8 +2109,12 @@ function IllustrationsScreen() {
     try {
       var sys = "You are a masterful sermon illustrator. Return ONLY raw valid JSON. Do not use markdown. Do not use code fences. Do not add ```json. Return only a JSON object with an illustrations array. Each illustration must have: title, type, content, application, scripture (optional).";
       var prompt = "Generate 3 sermon illustrations.\nType: " + illType + "\nTopic/Theme: " + topic + "\n\nReturn JSON only.";
+
       var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
       setResult(raw);
+
+      incrementUsage(mode);
+
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -1945,7 +2126,6 @@ function IllustrationsScreen() {
     var cleaned = typeof result === "string"
       ? result.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "")
       : result;
-
     var parsed = safeParseJSON(cleaned);
     if (!parsed) return [];
     return Array.isArray(parsed.illustrations) ? parsed.illustrations : [];
@@ -1955,8 +2135,6 @@ function IllustrationsScreen() {
 
   return (
     <div>
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>Illustrations</div>
       <div style={styles.sectionSub}>Generate vivid sermon illustrations, stories, and object lessons.</div>
 
       <div style={styles.card}>
@@ -1985,19 +2163,9 @@ function IllustrationsScreen() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginTop: 16 }}>
           <select
-            style={{
-              minWidth: 140,
-              height: 40,
-              borderRadius: 10,
-              border: "1px solid #d8c7a3",
-              background: "#ffffff",
-              color: CHARCOAL,
-              padding: "0 14px",
-              fontSize: 16,
-              outline: "none",
-            }}
+            style={Object.assign({}, styles.select, { width: 140 })}
             value={mode}
             onChange={function(e) { setMode(e.target.value); }}
           >
@@ -2005,24 +2173,9 @@ function IllustrationsScreen() {
             <option value="deep">Deep Mode</option>
           </select>
 
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={loading}
-            style={{
-              background: GOLD,
-              color: "#ffffff",
-              border: "2px solid #0b57d0",
-              borderRadius: 12,
-              padding: "10px 18px",
-              fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.7 : 1,
-              minHeight: 40,
-            }}
-          >
+          <Button onClick={handleGenerate} disabled={loading}>
             {loading ? "Generating..." : "Generate Illustrations"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -2050,12 +2203,13 @@ function IllustrationsScreen() {
             onClick={function() { setShowUpgradeModal(true); }}
             style={{
               background: GOLD,
-              color: "#ffffff",
+              color: "#fff",
               border: "none",
-              borderRadius: 10,
-              padding: "12px 18px",
-              fontWeight: 700,
+              borderRadius: 8,
+              padding: "10px 14px",
               cursor: "pointer",
+              fontWeight: "bold",
+              fontFamily: "'Georgia', serif",
             }}
           >
             Upgrade Now
@@ -2132,6 +2286,8 @@ function IllustrationsScreen() {
 function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
+  const [filterTool, setFilterTool] = useState("all");
+  const [filterSeries, setFilterSeries] = useState("all");
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -2139,23 +2295,35 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
   const [editScripture, setEditScripture] = useState("");
   const [editContent, setEditContent] = useState("");
 
+  var seriesList = useMemo(function() {
+    var titles = sermons
+      .map(function(s) { return s.seriesTitle; })
+      .filter(function(t) { return !!t; });
+    return Array.from(new Set(titles));
+  }, [sermons]);
+
   var filtered = useMemo(function() {
     var q = search.trim().toLowerCase();
 
-    var list = !q
-      ? sermons
-      : sermons.filter(function(s) {
-          return (s.title && s.title.toLowerCase().includes(q)) ||
-            (s.scripture && s.scripture.toLowerCase().includes(q)) ||
-            (s.content && s.content.toLowerCase().includes(q));
-        });
+    var list = sermons.filter(function(s) {
+      var matchesSearch = !q ||
+        (s.title && s.title.toLowerCase().includes(q)) ||
+        (s.scripture && s.scripture.toLowerCase().includes(q)) ||
+        (s.content && s.content.toLowerCase().includes(q));
+
+      var matchesTool = filterTool === "all" || s.sourceTool === filterTool;
+
+      var matchesSeries = filterSeries === "all" || s.seriesTitle === filterSeries;
+
+      return matchesSearch && matchesTool && matchesSeries;
+    });
 
     return list.slice().sort(function(a, b) {
       if (sort === "newest") return new Date(b.savedAt) - new Date(a.savedAt);
       if (sort === "oldest") return new Date(a.savedAt) - new Date(b.savedAt);
       return (a.title || "").localeCompare(b.title || "");
     });
-  }, [sermons, search, sort]);
+  }, [sermons, search, sort, filterTool, filterSeries]);
 
   function openEditModal(sermon) {
     setEditing(sermon);
@@ -2166,13 +2334,11 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
 
   function handleSaveEdit() {
     if (!editing) return;
-
     onUpdate(editing.id, {
       title: editTitle.trim() || "Untitled Sermon",
       scripture: editScripture.trim(),
       content: editContent,
     });
-
     setEditing(null);
     setEditTitle("");
     setEditScripture("");
@@ -2190,15 +2356,13 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
 
   return (
     <div>
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>My Sermons</div>
       <div style={styles.sectionSub}>
         Your personal sermon library — saved from Sermon Forge.
       </div>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
         <input
-          style={{ ...styles.input, flex: 1 }}
+          style={{ ...styles.input, flex: 1, minWidth: 200 }}
           value={search}
           onChange={function(e) { setSearch(e.target.value); }}
           placeholder="Search by title, scripture, or content..."
@@ -2212,6 +2376,31 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
           <option value="az">A–Z</option>
+        </select>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+        <select
+          style={{ ...styles.select, width: 200 }}
+          value={filterTool}
+          onChange={function(e) { setFilterTool(e.target.value); }}
+        >
+          <option value="all">All Tools</option>
+          <option value="sermon-forge">Sermon Forge</option>
+          <option value="series-planner">Series Planner</option>
+          <option value="topic-engine">Topic Engine</option>
+          <option value="word-study">Word Study</option>
+        </select>
+
+        <select
+          style={{ ...styles.select, width: 220 }}
+          value={filterSeries}
+          onChange={function(e) { setFilterSeries(e.target.value); }}
+        >
+          <option value="all">All Series</option>
+          {seriesList.map(function(t) {
+            return <option key={t} value={t}>{t}</option>;
+          })}
         </select>
       </div>
 
@@ -2236,8 +2425,19 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
                   </div>
                 )}
 
-                <div style={{ fontSize: 12, color: STONE_LIGHT }}>
+                <div style={{ fontSize: 12, color: STONE_LIGHT, marginTop: 2 }}>
                   Saved {s.savedAt}
+                  {s.sourceTool && (
+                    <span style={{ marginLeft: 8, ...styles.tag, ...styles.tagGold }}>
+                      {s.sourceTool.replace("-", " ")}
+                    </span>
+                  )}
+                  {s.seriesTitle && (
+                    <span style={{ marginLeft: 6, ...styles.tag, ...styles.tagGray }}>
+                      {s.seriesTitle}
+                      {s.seriesWeek ? " · Week " + s.seriesWeek : ""}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -2245,15 +2445,12 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
                 <Button variant="ghost" onClick={function() { setSelected(s); }}>
                   View
                 </Button>
-
                 <Button variant="ghost" onClick={function() { openEditModal(s); }}>
                   Edit
                 </Button>
-
                 <Button variant="ghost" onClick={function() { onDuplicate(s); }}>
                   Duplicate
                 </Button>
-
                 <Button variant="ghost" onClick={function() { setDeleteTarget(s); }}>
                   Remove
                 </Button>
@@ -2286,15 +2483,12 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
             <div style={{ fontWeight: 700, fontSize: 18 }}>
               {selected.title}
             </div>
-
             <div style={{ margin: "10px 0", color: GOLD }}>
               {selected.scripture}
             </div>
-
             <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, marginBottom: 16 }}>
               {selected.content}
             </div>
-
             <Button onClick={function() { setSelected(null); }}>Close</Button>
           </div>
         </div>
@@ -2306,7 +2500,6 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
             <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 14 }}>
               Edit Sermon
             </div>
-
             <div style={styles.inputGroup}>
               <label style={styles.label}>Title</label>
               <input
@@ -2315,7 +2508,6 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
                 onChange={function(e) { setEditTitle(e.target.value); }}
               />
             </div>
-
             <div style={styles.inputGroup}>
               <label style={styles.label}>Scripture</label>
               <input
@@ -2324,7 +2516,6 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
                 onChange={function(e) { setEditScripture(e.target.value); }}
               />
             </div>
-
             <div style={styles.inputGroup}>
               <label style={styles.label}>Content</label>
               <textarea
@@ -2333,7 +2524,6 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
                 onChange={function(e) { setEditContent(e.target.value); }}
               />
             </div>
-
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <Button variant="ghost" onClick={function() { setEditing(null); }}>
                 Cancel
@@ -2352,11 +2542,9 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
             <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 10 }}>
               Delete Sermon
             </div>
-
             <div style={{ color: STONE, lineHeight: 1.6, marginBottom: 18 }}>
               Are you sure you want to delete <strong>{deleteTarget.title}</strong>?
             </div>
-
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <Button variant="ghost" onClick={function() { setDeleteTarget(null); }}>
                 Cancel
@@ -2372,6 +2560,8 @@ function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
   );
 }
 
+  
+
 function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }) {
   const [seriesTitle, setSeriesTitle] = useState("");
   const [theme, setTheme] = useState("");
@@ -2382,7 +2572,7 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }
   const [error, setError] = useState("");
   const [showUpgradeMessage, setShowUpgradeMessage] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const currentUsage = { fast_used: 0, deep_used: 0 };
+  const currentUsage = loadUsage();
 
   const handlePlan = useCallback(async function() {
     setError("");
@@ -2395,6 +2585,7 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }
       return;
     }
 
+    const currentUsage = loadUsage();
     const usageCheck = canUseTool(CURRENT_USER.plan || "free", currentUsage, mode);
 
     if (!usageCheck.ok) {
@@ -2407,7 +2598,6 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }
 
     try {
       var sys = "You are an expert sermon series strategist. Return ONLY raw valid JSON. Do not use markdown. Do not use code fences. Do not add ```json. Return only a JSON object with: series_title, overview, sermons (array of objects with week, title, scripture, summary, key_point, progression).";
-
       var prompt =
         "Create a complete " + weeks + "-week sermon series.\n" +
         "Series Title: " + (seriesTitle || theme) + "\n" +
@@ -2423,6 +2613,9 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }
 
       var raw = await callJSONAPI({ prompt: prompt, sys: sys, mode: mode });
       setResult(raw);
+
+      incrementUsage(mode);
+
     } catch (e) {
       setError(e.message || "An error occurred.");
     } finally {
@@ -2432,15 +2625,12 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }
 
   var cleanedResult = useMemo(function() {
     if (typeof result !== "string") return result;
-
     var text = result.trim();
-
     text = text
       .replace(/^```json\s*/i, "")
       .replace(/^```\s*/i, "")
       .replace(/\s*```$/i, "")
       .trim();
-
     return text;
   }, [result]);
 
@@ -2451,6 +2641,9 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }
   function handleSaveSeries() {
   if (!plan || !Array.isArray(plan.sermons)) return;
 
+  var seriesId = Date.now();
+  var seriesTitleValue = plan.series_title || seriesTitle || theme;
+
   plan.sermons.forEach(function(s, i) {
     onSaveSeries({
       title: s.title || ("Week " + (s.week || i + 1)),
@@ -2458,15 +2651,19 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen }
       content:
         (s.summary || "") +
         (s.key_point ? "\n\nKey Point: " + s.key_point : ""),
-      savedAt: new Date().toISOString()
+      savedAt: new Date().toLocaleDateString(),
+      tags: [],
+      sourceTool: "series-planner",
+      sourceTopic: seriesTitleValue,
+      seriesId: seriesId,
+      seriesTitle: seriesTitleValue,
+      seriesWeek: s.week || (i + 1),
     });
   });
 }
 
   return (
     <div>
-      <div style={styles.goldAccent} />
-      <div style={styles.sectionHeader}>Series Planner</div>
       <div style={styles.sectionSub}>Architect a complete multi-week sermon series with scripture and progression.</div>
 
       <div style={styles.card}>
@@ -2991,82 +3188,122 @@ function ChurchSettingsScreen() {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export default function SermonCraftPro() {
+export default function SermonCraftPro({ user, profile, onSignOut }) {
   const [currentScreen, setCurrentScreen] = useState("dashboard");
   const [viewMode, setViewMode] = useState("pastor");
-  const [library, setLibrary] = useState(function() {
-    try {
-      var stored = localStorage.getItem("sermon_library");
-      return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [library, setLibrary] = useState([]);
+  const [libraryLoading, setLibraryLoading] = useState(true);
   const libCounter = useRef(100);
   const [forgePrefill, setForgePrefill] = useState(null);
 
+  const currentUser = {
+    id: user?.id || "",
+    name: profile?.full_name || user?.user_metadata?.full_name || user?.email || "Pastor",
+role: profile?.title ? profile.title : "Pastor",
+    email: user?.email || "",
+    role: "Senior Pastor",
+    church: SEED_CHURCH.name,
+    branch: "Main Campus",
+    isAdmin: true,
+    plan: profile?.plan || "free",
+  };
+
   useEffect(function() {
-    if (library.length > 0) {
-      var maxId = Math.max.apply(
-        null,
-        library.map(function(s) { return s.id || 0; })
-      );
-      libCounter.current = maxId;
-    }
+    pingAPIs();
   }, []);
 
   useEffect(function() {
-    try {
-      localStorage.setItem("sermon_library", JSON.stringify(library));
-    } catch (e) {}
-  }, [library]);
+    if (!user) return;
+
+    import("./lib/db").then(function({ fetchSermons }) {
+      fetchSermons(user.id)
+        .then(function(data) {
+          setLibrary(data);
+          if (data.length > 0) {
+            var maxId = Math.max.apply(null, data.map(function(s) { return s.id || 0; }));
+            libCounter.current = maxId;
+          }
+        })
+        .catch(function() {
+          var stored = localStorage.getItem("sermon_library");
+          if (stored) {
+            try { setLibrary(JSON.parse(stored)); } catch (e) {}
+          }
+        })
+        .finally(function() { setLibraryLoading(false); });
+    });
+  }, [user]);
 
   const handleSaveToLibrary = useCallback(function(sermon) {
-    libCounter.current += 1;
-
-    var newItem = Object.assign({}, sermon, {
-      id: libCounter.current,
-      savedAt: sermon.savedAt || new Date().toISOString()
+    import("./lib/db").then(function({ insertSermon }) {
+      insertSermon(user.id, sermon)
+        .then(function(saved) {
+          var newItem = Object.assign({}, sermon, {
+            id: saved.id,
+            savedAt: new Date(saved.saved_at).toLocaleDateString(),
+          });
+          setLibrary(function(prev) { return [newItem, ...prev]; });
+        })
+        .catch(function() {
+          libCounter.current += 1;
+          var newItem = Object.assign({}, {
+            tags: [],
+            sourceTool: "",
+            sourceTopic: "",
+            seriesId: null,
+            seriesTitle: null,
+            seriesWeek: null,
+          }, sermon, {
+            id: libCounter.current,
+            savedAt: sermon.savedAt || new Date().toLocaleDateString(),
+          });
+          setLibrary(function(prev) { return [newItem, ...prev]; });
+        });
     });
-
-    setLibrary(function(prev) {
-      return [newItem, ...prev];
-    });
-  }, []);
+  }, [user]);
 
   const handleDeleteFromLibrary = useCallback(function(id) {
-    setLibrary(function(prev) {
-      return prev.filter(function(s) { return s.id !== id; });
+    import("./lib/db").then(function({ deleteSermon }) {
+      deleteSermon(id).catch(function() {});
     });
+    setLibrary(function(prev) { return prev.filter(function(s) { return s.id !== id; }); });
   }, []);
 
   const handleUpdateLibraryItem = useCallback(function(id, updates) {
-  setLibrary(function(prev) {
-    return prev.map(function(item) {
-      if (item.id !== id) return item;
-      return Object.assign({}, item, updates);
+    import("./lib/db").then(function({ updateSermon }) {
+      updateSermon(id, updates).catch(function() {});
     });
-  });
-}, []);
+    setLibrary(function(prev) {
+      return prev.map(function(item) {
+        if (item.id !== id) return item;
+        return Object.assign({}, item, updates);
+      });
+    });
+  }, []);
 
-const handleDuplicateLibraryItem = useCallback(function(sermon) {
-  libCounter.current += 1;
-
-  var duplicate = Object.assign({}, sermon, {
-    id: libCounter.current,
-    title: (sermon.title || "Untitled Sermon") + " (Copy)",
-    savedAt: new Date().toISOString()
-  });
-
-  setLibrary(function(prev) {
-    return [duplicate, ...prev];
-  });
-}, []);
+  const handleDuplicateLibraryItem = useCallback(function(sermon) {
+    var duplicate = Object.assign({}, sermon, {
+      id: null,
+      title: (sermon.title || "Untitled Sermon") + " (Copy)",
+      savedAt: new Date().toLocaleDateString(),
+    });
+    handleSaveToLibrary(duplicate);
+  }, [handleSaveToLibrary]);
 
   const handleModeSwitch = useCallback(function(mode) {
     setViewMode(mode);
     setCurrentScreen(mode === "pastor" ? "dashboard" : "church-overview");
   }, []);
+
+  const handleSignOut = useCallback(function() {
+    import("./lib/auth").then(function({ signOut }) {
+      signOut().then(function() {
+        onSignOut();
+      }).catch(function() {
+        onSignOut();
+      });
+    });
+  }, [onSignOut]);
 
   var pageTitle = useMemo(function() {
     var allNav = PASTOR_NAV.concat(ADMIN_NAV);
@@ -3074,7 +3311,7 @@ const handleDuplicateLibraryItem = useCallback(function(sermon) {
     return found ? found.label : "Dashboard";
   }, [currentScreen]);
 
-  var initials = CURRENT_USER.name
+  var initials = currentUser.name
     .split(" ")
     .map(function(n) { return n[0]; })
     .join("")
@@ -3084,7 +3321,7 @@ const handleDuplicateLibraryItem = useCallback(function(sermon) {
   function renderScreen() {
     switch (currentScreen) {
       case "dashboard":
-        return <DashboardScreen user={CURRENT_USER} library={library} setCurrentScreen={setCurrentScreen} />;
+        return <DashboardScreen user={currentUser} library={library} setCurrentScreen={setCurrentScreen} />;
       case "ai-pastor":
         return <AIPastorScreen />;
       case "topic-engine":
@@ -3105,15 +3342,15 @@ const handleDuplicateLibraryItem = useCallback(function(sermon) {
         );
       case "illustrations":
         return <IllustrationsScreen />;
-     case "library":
-  return (
-    <LibraryScreen
-      library={library}
-      onDelete={handleDeleteFromLibrary}
-      onUpdate={handleUpdateLibraryItem}
-      onDuplicate={handleDuplicateLibraryItem}
-    />
-  );
+      case "library":
+        return (
+          <LibraryScreen
+            library={library}
+            onDelete={handleDeleteFromLibrary}
+            onUpdate={handleUpdateLibraryItem}
+            onDuplicate={handleDuplicateLibraryItem}
+          />
+        );
       case "series-planner":
         return (
           <SeriesPlannerScreen
@@ -3135,7 +3372,7 @@ const handleDuplicateLibraryItem = useCallback(function(sermon) {
       case "church-settings":
         return <ChurchSettingsScreen />;
       default:
-        return <DashboardScreen user={CURRENT_USER} library={library} setCurrentScreen={setCurrentScreen} />;
+        return <DashboardScreen user={currentUser} library={library} setCurrentScreen={setCurrentScreen} />;
     }
   }
 
@@ -3202,13 +3439,29 @@ const handleDuplicateLibraryItem = useCallback(function(sermon) {
         </div>
 
         <div style={{ marginTop: "auto", padding: "16px", borderTop: "1px solid " + BORDER }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <div style={styles.avatar}>{initials}</div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: CHARCOAL }}>{CURRENT_USER.name}</div>
-              <div style={{ fontSize: 11, color: STONE_LIGHT }}>{CURRENT_USER.role}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: CHARCOAL }}>{currentUser.name}</div>
+              <div style={{ fontSize: 11, color: STONE_LIGHT }}>{currentUser.role}</div>
             </div>
           </div>
+          <button
+            onClick={handleSignOut}
+            style={{
+              width: "100%",
+              padding: "8px",
+              background: "transparent",
+              border: "1px solid " + BORDER,
+              borderRadius: 6,
+              fontSize: 12,
+              color: STONE,
+              cursor: "pointer",
+              fontFamily: "'Georgia', serif",
+            }}
+          >
+            Sign Out
+          </button>
         </div>
       </div>
 
@@ -3217,15 +3470,19 @@ const handleDuplicateLibraryItem = useCallback(function(sermon) {
           <div style={styles.pageTitle}>{pageTitle}</div>
           <div style={styles.userBadge}>
             <div style={styles.avatar}>{initials}</div>
-            <span>{CURRENT_USER.church}</span>
-            {CURRENT_USER.isAdmin && (
+            <span>{currentUser.church}</span>
+            {currentUser.isAdmin && (
               <span style={Object.assign({}, styles.tag, styles.tagGold)}>Admin</span>
             )}
           </div>
         </div>
 
         <div style={styles.scrollArea}>
-          {renderScreen()}
+          {libraryLoading ? (
+            <div style={{ padding: 40, textAlign: "center", color: STONE_LIGHT, fontStyle: "italic" }}>
+              Loading your sermons...
+            </div>
+          ) : renderScreen()}
         </div>
       </div>
     </div>

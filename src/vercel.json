@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/sermon.js": {
+      "maxDuration": 60
+    },
+    "api/forge-json.js": {
+      "maxDuration": 60
+    }
+  }
+}

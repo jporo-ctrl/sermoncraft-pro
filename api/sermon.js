@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   try {
     const { prompt, sys, mode } = req.body;
 
-    const maxTokens = mode === "deep" ? 6000 : 3000;
+    const maxTokens = mode === "deep" ? 4000 : 2000;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -21,8 +21,7 @@ export default async function handler(req, res) {
             role: "user",
             content: prompt
           }
-        ],
-        stream: true
+        ]
       })
     });
 
@@ -31,41 +30,15 @@ export default async function handler(req, res) {
       return res.status(500).send(text);
     }
 
+    const data = await response.json();
+
+    const text =
+      data?.content?.map(c => c.text).join("") ||
+      "";
+
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.status(200).send(text);
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-
-      // extract only text deltas
-      const lines = chunk.split("\n");
-      for (let line of lines) {
-        if (line.startsWith("data:")) {
-          const json = line.replace("data:", "").trim();
-          if (!json || json === "[DONE]") continue;
-
-          try {
-            const parsed = JSON.parse(json);
-
-            const text =
-              parsed?.delta?.text ||
-              parsed?.content?.[0]?.text ||
-              "";
-
-            if (text) {
-              res.write(text);
-            }
-          } catch (e) {}
-        }
-      }
-    }
-
-    res.end();
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

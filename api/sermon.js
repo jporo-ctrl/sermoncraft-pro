@@ -1,64 +1,72 @@
-import Anthropic from "@anthropic-ai/sdk";
-
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
   try {
-    const { prompt, sys, mode } = req.body || {};
+    const { prompt, sys, mode } = req.body;
 
-    if (!prompt) {
-      return res.status(400).json({ error: "Missing prompt" });
+    const maxTokens = mode === "deep" ? 6000 : 3000;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: maxTokens,
+        temperature: 0.7,
+        system: sys,
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        stream: true
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(500).send(text);
     }
 
-    const model =
-      mode === "fast"
-        ? "claude-haiku-4-5-20251001"
-        : "claude-sonnet-4-6";
-
-    const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-
-    const stream = await client.messages.stream({
-      model,
-      max_tokens: mode === "fast" ? 900 : 1500,
-      system:
-        sys ||
-        "You are a powerful sermon-generating assistant. Write clearly, biblically, structured.",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
-
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
 
-    for await (const chunk of stream) {
-      if (chunk.type === "content_block_delta") {
-        const text = chunk.delta?.text || "";
-        res.write(text);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+
+      // extract only text deltas
+      const lines = chunk.split("\n");
+      for (let line of lines) {
+        if (line.startsWith("data:")) {
+          const json = line.replace("data:", "").trim();
+          if (!json || json === "[DONE]") continue;
+
+          try {
+            const parsed = JSON.parse(json);
+
+            const text =
+              parsed?.delta?.text ||
+              parsed?.content?.[0]?.text ||
+              "";
+
+            if (text) {
+              res.write(text);
+            }
+          } catch (e) {}
+        }
       }
     }
 
-    return res.end();
-  } catch (err) {
-    return res.status(500).json({
-      error: "AI request failed",
-      detail: String(err),
-    });
+    res.end();
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 }

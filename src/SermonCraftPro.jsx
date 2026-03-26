@@ -2113,10 +2113,15 @@ function IllustrationsScreen() {
   );
 }
 
-function LibraryScreen({ library: sermons, onDelete }) {
+function LibraryScreen({ library: sermons, onDelete, onUpdate, onDuplicate }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("newest");
   const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editScripture, setEditScripture] = useState("");
+  const [editContent, setEditContent] = useState("");
 
   var filtered = useMemo(function() {
     var q = search.trim().toLowerCase();
@@ -2125,7 +2130,8 @@ function LibraryScreen({ library: sermons, onDelete }) {
       ? sermons
       : sermons.filter(function(s) {
           return (s.title && s.title.toLowerCase().includes(q)) ||
-            (s.scripture && s.scripture.toLowerCase().includes(q));
+            (s.scripture && s.scripture.toLowerCase().includes(q)) ||
+            (s.content && s.content.toLowerCase().includes(q));
         });
 
     return list.slice().sort(function(a, b) {
@@ -2134,6 +2140,37 @@ function LibraryScreen({ library: sermons, onDelete }) {
       return (a.title || "").localeCompare(b.title || "");
     });
   }, [sermons, search, sort]);
+
+  function openEditModal(sermon) {
+    setEditing(sermon);
+    setEditTitle(sermon.title || "");
+    setEditScripture(sermon.scripture || "");
+    setEditContent(sermon.content || "");
+  }
+
+  function handleSaveEdit() {
+    if (!editing) return;
+
+    onUpdate(editing.id, {
+      title: editTitle.trim() || "Untitled Sermon",
+      scripture: editScripture.trim(),
+      content: editContent,
+    });
+
+    setEditing(null);
+    setEditTitle("");
+    setEditScripture("");
+    setEditContent("");
+  }
+
+  function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    onDelete(deleteTarget.id);
+    if (selected && selected.id === deleteTarget.id) {
+      setSelected(null);
+    }
+    setDeleteTarget(null);
+  }
 
   return (
     <div>
@@ -2147,14 +2184,14 @@ function LibraryScreen({ library: sermons, onDelete }) {
         <input
           style={{ ...styles.input, flex: 1 }}
           value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by title or scripture..."
+          onChange={function(e) { setSearch(e.target.value); }}
+          placeholder="Search by title, scripture, or content..."
         />
 
         <select
           style={{ ...styles.select, width: 160 }}
           value={sort}
-          onChange={e => setSort(e.target.value)}
+          onChange={function(e) { setSort(e.target.value); }}
         >
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
@@ -2173,8 +2210,8 @@ function LibraryScreen({ library: sermons, onDelete }) {
       {filtered.map(function(s) {
         return (
           <div key={s.id} style={{ ...styles.card, marginBottom: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{s.title}</div>
 
                 {s.scripture && (
@@ -2188,34 +2225,39 @@ function LibraryScreen({ library: sermons, onDelete }) {
                 </div>
               </div>
 
-              <div style={{ display: "flex", gap: 8 }}>
-                <Button
-                  variant="ghost"
-                  onClick={() => setSelected(s)}
-                >
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <Button variant="ghost" onClick={function() { setSelected(s); }}>
                   View
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  onClick={() => onDelete(s.id)}
-                >
+                <Button variant="ghost" onClick={function() { openEditModal(s); }}>
+                  Edit
+                </Button>
+
+                <Button variant="ghost" onClick={function() { onDuplicate(s); }}>
+                  Duplicate
+                </Button>
+
+                <Button variant="ghost" onClick={function() { setDeleteTarget(s); }}>
                   Remove
                 </Button>
               </div>
             </div>
 
             {s.content && (
-              <div style={{
-                marginTop: 10,
-                background: CREAM,
-                padding: 12,
-                borderRadius: 8,
-                fontSize: 14,
-                maxHeight: 120,
-                overflow: "hidden"
-              }}>
-                {s.content.slice(0, 250)}...
+              <div
+                style={{
+                  marginTop: 10,
+                  background: CREAM,
+                  padding: 12,
+                  borderRadius: 8,
+                  fontSize: 14,
+                  maxHeight: 120,
+                  overflow: "hidden"
+                }}
+              >
+                {s.content.slice(0, 250)}
+                {s.content.length > 250 ? "..." : ""}
               </div>
             )}
           </div>
@@ -2233,11 +2275,80 @@ function LibraryScreen({ library: sermons, onDelete }) {
               {selected.scripture}
             </div>
 
-            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, marginBottom: 16 }}>
               {selected.content}
             </div>
 
-            <Button onClick={() => setSelected(null)}>Close</Button>
+            <Button onClick={function() { setSelected(null); }}>Close</Button>
+          </div>
+        </div>
+      )}
+
+      {editing && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 14 }}>
+              Edit Sermon
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Title</label>
+              <input
+                style={styles.input}
+                value={editTitle}
+                onChange={function(e) { setEditTitle(e.target.value); }}
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Scripture</label>
+              <input
+                style={styles.input}
+                value={editScripture}
+                onChange={function(e) { setEditScripture(e.target.value); }}
+              />
+            </div>
+
+            <div style={styles.inputGroup}>
+              <label style={styles.label}>Content</label>
+              <textarea
+                style={{ ...styles.textarea, minHeight: 240 }}
+                value={editContent}
+                onChange={function(e) { setEditContent(e.target.value); }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Button variant="ghost" onClick={function() { setEditing(null); }}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit}>
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 10 }}>
+              Delete Sermon
+            </div>
+
+            <div style={{ color: STONE, lineHeight: 1.6, marginBottom: 18 }}>
+              Are you sure you want to delete <strong>{deleteTarget.title}</strong>?
+            </div>
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <Button variant="ghost" onClick={function() { setDeleteTarget(null); }}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmDelete}>
+                Delete
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -2913,6 +3024,29 @@ export default function SermonCraftPro() {
     });
   }, []);
 
+  const handleUpdateLibraryItem = useCallback(function(id, updates) {
+  setLibrary(function(prev) {
+    return prev.map(function(item) {
+      if (item.id !== id) return item;
+      return Object.assign({}, item, updates);
+    });
+  });
+}, []);
+
+const handleDuplicateLibraryItem = useCallback(function(sermon) {
+  libCounter.current += 1;
+
+  var duplicate = Object.assign({}, sermon, {
+    id: libCounter.current,
+    title: (sermon.title || "Untitled Sermon") + " (Copy)",
+    savedAt: new Date().toISOString()
+  });
+
+  setLibrary(function(prev) {
+    return [duplicate, ...prev];
+  });
+}, []);
+
   const handleModeSwitch = useCallback(function(mode) {
     setViewMode(mode);
     setCurrentScreen(mode === "pastor" ? "dashboard" : "church-overview");
@@ -2955,8 +3089,15 @@ export default function SermonCraftPro() {
         );
       case "illustrations":
         return <IllustrationsScreen />;
-      case "library":
-        return <LibraryScreen library={library} onDelete={handleDeleteFromLibrary} />;
+     case "library":
+  return (
+    <LibraryScreen
+      library={library}
+      onDelete={handleDeleteFromLibrary}
+      onUpdate={handleUpdateLibraryItem}
+      onDuplicate={handleDuplicateLibraryItem}
+    />
+  );
       case "series-planner":
         return (
           <SeriesPlannerScreen

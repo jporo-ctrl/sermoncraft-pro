@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   try {
     const { prompt, sys, mode } = req.body;
 
-    const maxTokens = mode === "deep" ? 4000 : 2000;
+    const maxTokens = mode === "deep" ? 6000 : 3000;
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022", // ← your original working model
+        model: "claude-3-sonnet", // ← your original working model
         max_tokens: maxTokens,
         temperature: 0.7,
         system: sys,

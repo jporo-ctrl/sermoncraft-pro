@@ -1,23 +1,15 @@
 {
-  "name": "sermoncraft-pro",
+  "name": "r4",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
-    "@stripe/react-stripe-js": "^6.0.0",
-    "@stripe/stripe-js": "^9.0.0",
-    "@supabase/supabase-js": "^2.100.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
-    "docx": "^9.6.1",
-    "file-saver": "^2.0.5",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-scripts": "5.0.1",
-    "resend": "^6.9.4",
-    "stripe": "^21.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {

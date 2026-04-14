@@ -1,5 +1,8 @@
 {
   "functions": {
+    "api/transcribe.js": {
+      "maxDuration": 60
+    },
     "api/sermon.js": {
       "maxDuration": 60
     },

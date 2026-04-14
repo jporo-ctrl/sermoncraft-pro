@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SermonCraft Pro — AI Ministry OS for Pastors</title>
+  <meta name="description" content="The complete AI platform for pastors. Generate sermon manuscripts, plan sermon series, coach your delivery, and schedule your team — all in one place." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gold: #B8860B;
+      --gold-light: #D4A017;
+      --gold-pale: #FDF3DC;
+      --gold-border: #E8C87A;
+      --charcoal: #1A1208;
+      --charcoal-2: #2C2416;
+      --cream: #FDFAF5;
+      --ivory: #F7F2E8;
+      --stone: #8B7355;
+      --stone-light: #A89070;
+      --border: #E8DCC8;
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body: 'DM Sans', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font-body); background: var(--cream); color: var(--charcoal); overflow-x: hidden; }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(253,250,245,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--charcoal); }
+    .nav-logo .cross { font-size: 22px; color: var(--gold); }
+    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links a { font-size: 13px; font-weight: 500; color: var(--stone); text-decoration: none; transition: color 0.15s; }
+    .nav-links a:hover { color: var(--charcoal); }
+    .nav-cta { display: flex; align-items: center; gap: 12px; }
+    .btn-ghost { padding: 8px 18px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--stone); background: transparent; cursor: pointer; text-decoration: none; transition: all 0.15s; }
+    .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+    .btn-gold { padding: 9px 20px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; color: #fff; background: var(--gold); cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .btn-gold:hover { background: var(--gold-light); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(184,134,11,0.3); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 120px 24px 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(184,134,11,0.09) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 40% at 10% 100%, rgba(184,134,11,0.04) 0%, transparent 60%);
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 18px; background: var(--gold-pale);
+      border: 1px solid var(--gold-border); border-radius: 20px;
+      font-size: 12px; font-weight: 700; color: var(--gold);
+      letter-spacing: 0.07em; text-transform: uppercase;
+      margin-bottom: 36px; animation: fadeUp 0.7s ease both;
+    }
+    .hero h1 {
+      font-family: var(--font-display); font-size: clamp(44px, 7vw, 86px);
+      font-weight: 900; line-height: 1.06; color: var(--charcoal);
+      max-width: 900px; margin-bottom: 28px;
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+    .hero h1 em { font-style: italic; color: var(--gold); }
+    .hero-sub { font-size: clamp(16px, 2vw, 19px); color: var(--stone); max-width: 560px; line-height: 1.75; margin-bottom: 48px; animation: fadeUp 0.7s 0.2s ease both; }
+    .hero-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; animation: fadeUp 0.7s 0.3s ease both; }
+    .btn-hero { padding: 16px 40px; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; color: #fff; background: var(--gold); cursor: pointer; text-decoration: none; transition: all 0.2s; box-shadow: 0 4px 20px rgba(184,134,11,0.25); }
+    .btn-hero:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(184,134,11,0.35); }
+    .btn-hero-outline { padding: 15px 32px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; font-weight: 600; color: var(--stone); background: transparent; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .btn-hero-outline:hover { border-color: var(--gold); color: var(--gold); }
+    .hero-note { margin-top: 20px; font-size: 12px; color: var(--stone-light); animation: fadeUp 0.7s 0.4s ease both; }
+
+    /* SOCIAL PROOF */
+    .social-proof { padding: 28px 32px; background: var(--ivory); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); text-align: center; }
+    .social-proof p { font-size: 11px; font-weight: 700; color: var(--stone-light); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 18px; }
+    .denoms { display: flex; align-items: center; justify-content: center; gap: 36px; flex-wrap: wrap; }
+    .denom { font-family: var(--font-display); font-size: 15px; color: var(--stone); font-style: italic; }
+
+    /* SECTIONS */
+    section { padding: 96px 24px; }
+    .inner { max-width: 1200px; margin: 0 auto; }
+    .section-label { font-size: 11px; font-weight: 700; color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 14px; }
+    .section-title { font-family: var(--font-display); font-size: clamp(30px, 4vw, 52px); font-weight: 700; color: var(--charcoal); line-height: 1.15; max-width: 640px; margin-bottom: 16px; }
+    .section-sub { font-size: 16px; color: var(--stone); line-height: 1.75; max-width: 520px; margin-bottom: 56px; }
+
+    /* TOOLS GRID */
+    .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .tool-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 28px; transition: all 0.2s; position: relative; overflow: hidden; }
+    .tool-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform 0.3s; }
+    .tool-card:hover { border-color: var(--gold-border); transform: translateY(-3px); box-shadow: 0 8px 32px rgba(44,36,22,0.08); }
+    .tool-card:hover::before { transform: scaleX(1); }
+    .tool-icon { font-size: 26px; margin-bottom: 14px; }
+    .tool-name { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--charcoal); margin-bottom: 8px; }
+    .tool-desc { font-size: 13px; color: var(--stone); line-height: 1.65; margin-bottom: 14px; }
+    .tool-plan { display: inline-block; padding: 3px 10px; background: var(--gold-pale); border: 1px solid var(--gold-border); border-radius: 12px; font-size: 11px; font-weight: 700; color: var(--gold); }
+
+    /* FEATURE SPLIT */
+    .feature-split { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; margin-bottom: 96px; }
+    .feature-split:last-child { margin-bottom: 0; }
+    .feature-split.rev { direction: rtl; }
+    .feature-split.rev > * { direction: ltr; }
+    .f-visual { background: var(--charcoal-2); border-radius: 16px; padding: 36px; min-height: 300px; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; }
+    .f-visual::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 60% at 80% 20%, rgba(184,134,11,0.18) 0%, transparent 70%); }
+    .f-visual-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 18px; position: relative; }
+    .f-visual-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; position: relative; }
+    .f-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex-shrink: 0; margin-top: 5px; }
+    .f-text { font-size: 13px; color: rgba(255,255,255,0.78); line-height: 1.55; }
+    .f-content-title { font-family: var(--font-display); font-size: clamp(26px, 3.5vw, 40px); font-weight: 700; color: var(--charcoal); line-height: 1.2; margin-bottom: 14px; }
+    .f-content-desc { font-size: 15px; color: var(--stone); line-height: 1.8; margin-bottom: 24px; }
+    .f-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .f-list li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--charcoal); font-weight: 500; }
+    .f-list li::before { content: '✓'; color: var(--gold); font-weight: 700; flex-shrink: 0; }
+
+    /* PLANS */
+    .plans-bg { background: var(--charcoal-2); }
+    .plans-bg .section-title { color: #fff; }
+    .plans-bg .section-sub { color: rgba(255,255,255,0.55); }
+    .plans-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 48px; }
+    .plan-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 26px 20px; transition: all 0.2s; position: relative; }
+    .plan-card.popular { background: rgba(184,134,11,0.14); border-color: var(--gold); }
+    .plan-card:hover { transform: translateY(-4px); background: rgba(255,255,255,0.1); }
+    .plan-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--gold); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 14px; border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+    .plan-name { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .plan-price { font-size: 28px; font-weight: 800; color: #fff; margin: 12px 0 4px; }
+    .plan-price span { font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.45); }
+    .plan-desc { font-size: 12px; color: rgba(255,255,255,0.45); margin-bottom: 18px; line-height: 1.5; }
+    .plan-feats { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+    .plan-feats li { font-size: 12px; color: rgba(255,255,255,0.72); display: flex; align-items: flex-start; gap: 7px; line-height: 1.5; }
+    .plan-feats li::before { content: '✓'; color: var(--gold); font-weight: 700; flex-shrink: 0; }
+    .plan-btn { display: block; width: 100%; padding: 10px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; font-size: 13px; font-weight: 700; color: #fff; background: transparent; cursor: pointer; text-decoration: none; text-align: center; transition: all 0.15s; }
+    .plan-btn:hover { background: rgba(255,255,255,0.1); }
+    .plan-btn.primary { background: var(--gold); border-color: var(--gold); }
+    .plan-btn.primary:hover { background: var(--gold-light); }
+
+    /* TRIAL BANNER */
+    .trial-banner { background: linear-gradient(135deg, var(--gold) 0%, #8B6309 100%); border-radius: 16px; padding: 40px 48px; display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; margin-top: 56px; }
+    .trial-banner h3 { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .trial-banner p { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.6; max-width: 480px; }
+    .btn-white { padding: 13px 32px; border: 2px solid #fff; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--gold); background: #fff; cursor: pointer; text-decoration: none; white-space: nowrap; transition: all 0.15s; flex-shrink: 0; }
+    .btn-white:hover { background: rgba(255,255,255,0.92); }
+
+    /* TESTIMONIALS */
+    .testimonials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .testimonial { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+    .t-text { font-family: var(--font-display); font-size: 15px; font-style: italic; color: var(--charcoal); line-height: 1.75; margin-bottom: 20px; }
+    .t-author { display: flex; align-items: center; gap: 12px; }
+    .t-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: #fff; flex-shrink: 0; }
+    .t-name { font-size: 13px; font-weight: 700; color: var(--charcoal); }
+    .t-role { font-size: 11px; color: var(--stone-light); }
+
+    /* INTEGRATION */
+    .int-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 40px; display: flex; align-items: center; gap: 40px; flex-wrap: wrap; }
+    .pco-logo { font-family: var(--font-display); font-size: 24px; font-weight: 900; color: var(--charcoal); padding: 16px 24px; border: 2px solid var(--border); border-radius: 12px; white-space: nowrap; flex-shrink: 0; line-height: 1.3; }
+
+    /* FOOTER */
+    footer { background: var(--charcoal); color: rgba(255,255,255,0.55); padding: 56px 40px 32px; }
+    .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; margin-bottom: 48px; }
+    .footer-brand p { font-size: 14px; line-height: 1.7; margin-top: 12px; max-width: 280px; }
+    .footer-col h4 { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; }
+    .footer-col a { display: block; font-size: 14px; color: rgba(255,255,255,0.55); text-decoration: none; margin-bottom: 10px; transition: color 0.15s; }
+    .footer-col a:hover { color: #fff; }
+    .footer-bottom { max-width: 1200px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 12px; }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    .reveal {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.hidden {
+      opacity: 0;
+      transform: translateY(32px);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .feature-split { grid-template-columns: 1fr; gap: 40px; direction: ltr !important; }
+      .plans-grid { grid-template-columns: 1fr 1fr; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      nav { padding: 0 20px; }
+      .nav-links { display: none; }
+    }
+    @media (max-width: 520px) {
+      .plans-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: 1fr; }
+      .trial-banner { padding: 28px 24px; }
+      .int-card { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo"><span class="cross">✝</span> SermonCraft Pro</a>
+  <div class="nav-links">
+    <a href="#tools">Tools</a>
+    <a href="#poro">AI Pastor Poro</a>
+    <a href="#features">Features</a>
+    <a href="#plans">Pricing</a>
+    <a href="#integration">Integrations</a>
+  </div>
+  <div class="nav-cta">
+    <a href="https://app.sermoncraftpro.com" class="btn-ghost">Sign In</a>
+    <a href="https://app.sermoncraftpro.com" class="btn-gold">Start Free Trial</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-badge">✝ The AI Ministry OS for Pastors</div>
+  <h1>Preach with the<br/><em>depth of a scholar,</em><br/>pace of a saint.</h1>
+  <p class="hero-sub">SermonCraft Pro is the complete AI platform for ministry professionals. Generate sermon manuscripts, plan series, coach your delivery, and coordinate your team — built for the pulpit.</p>
+  <div class="hero-actions">
+    <a href="https://app.sermoncraftpro.com" class="btn-hero">Start Free — 7 or 14 Days</a>
+    <a href="#tools" class="btn-hero-outline">See all 12 tools →</a>
+  </div>
+  <p class="hero-note">No credit card required to create an account · Cancel anytime</p>
+</section>
+
+<!-- SOCIAL PROOF -->
+<div class="social-proof">
+  <p>Trusted by pastors from</p>
+  <div class="denoms">
+    <span class="denom">Baptist</span>
+    <span class="denom">Pentecostal</span>
+    <span class="denom">Anglican</span>
+    <span class="denom">Methodist</span>
+    <span class="denom">Non-denominational</span>
+    <span class="denom">Reformed</span>
+    <span class="denom">Charismatic</span>
+  </div>
+</div>
+
+<!-- TOOLS -->
+<section id="tools">
+  <div class="inner">
+    <div class="section-label">Everything You Need</div>
+    <h2 class="section-title">12 AI tools built for the ministry.</h2>
+    <p class="section-sub">Not a generic AI tool adapted for church. Built from the ground up for pastors, worship leaders, and ministry teams.</p>
+    <div class="tools-grid">
+      <div class="tool-card reveal"><div class="tool-icon">✍</div><div class="tool-name">Sermon Forge</div><div class="tool-desc">Generate complete manuscripts with intro, body, illustrations, and conclusion. Fast Mode or Deep Mode with full theological depth.</div><span class="tool-plan">Free</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">💡</div><div class="tool-name">Topic Engine</div><div class="tool-desc">Generate compelling sermon ideas with scripture anchors, angles, and summaries — tailored to your congregation and season.</div><span class="tool-plan">Free</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">📖</div><div class="tool-name">Word Study</div><div class="tool-desc">Deep dives into Hebrew and Greek word meanings, historical context, cross-references, and preaching applications.</div><span class="tool-plan">Starter+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">🖼</div><div class="tool-name">Illustrations</div><div class="tool-desc">Stories, object lessons, historical examples, metaphors, and parables that make your sermons memorable and vivid.</div><span class="tool-plan">Starter+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">📚</div><div class="tool-name">Bible Commentary</div><div class="tool-desc">Expository, devotional, or topical commentaries with original language insights, theological themes, and sermon takeaways.</div><span class="tool-plan">Starter+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">✝</div><div class="tool-name">AI Pastor Poro</div><div class="tool-desc">A real-time theological advisor who knows your doctrine, preaching style, and congregation. Ask anything about your text.</div><span class="tool-plan">Starter+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">🗓</div><div class="tool-name">Series Planner</div><div class="tool-desc">Architect complete multi-week series with week-by-week progression, scriptures, key points, and thematic arc.</div><span class="tool-plan">Growth+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">🔁</div><div class="tool-name">Content Multiplier</div><div class="tool-desc">Turn one sermon into a 7-day devotional, social posts, small group guide, and email newsletter — instantly.</div><span class="tool-plan">Growth+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">📋</div><div class="tool-name">Service Order Builder</div><div class="tool-desc">AI-generated complete service flows — opening prayer, worship suggestions, scripture reading, sermon hook, altar call.</div><span class="tool-plan">Growth+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">👥</div><div class="tool-name">Team Scheduler</div><div class="tool-desc">Schedule your worship team, volunteers, and ministry staff per service. Assign roles, copy the schedule, track availability.</div><span class="tool-plan">Growth+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">🎤</div><div class="tool-name">Delivery Coach</div><div class="tool-desc">Record or upload your sermon audio. Get scored feedback on pace, clarity, engagement, scripture use, and overall impact.</div><span class="tool-plan">Pro+</span></div>
+      <div class="tool-card reveal"><div class="tool-icon">🔗</div><div class="tool-name">Planning Center Sync</div><div class="tool-desc">Import service plans from Planning Center into Sermon Forge. Pull congregation data into the AI context automatically.</div><span class="tool-plan">Pro+</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" style="background: var(--ivory);">
+  <div class="inner">
+    <div class="section-label">Why SermonCraft Pro</div>
+    <h2 class="section-title">Built for the pulpit, not the boardroom.</h2>
+    <p class="section-sub" style="margin-bottom: 72px;">Every feature was designed with a specific pastoral need in mind — not adapted from a generic productivity tool.</p>
+
+    <div class="feature-split reveal">
+      <div class="f-visual">
+        <div class="f-visual-title">Your Voice Profile</div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Doctrine: Reformed Baptist — salvation by grace through faith alone</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Style: Expository preaching, verse-by-verse through books of the Bible</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Congregation: 250 members, multigenerational, suburban community</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">✓ Every generation now reflects your unique voice and theology</div></div>
+      </div>
+      <div>
+        <div class="section-label">Voice & Congregation Intelligence</div>
+        <h3 class="f-content-title">The AI knows your church, not just the Bible.</h3>
+        <p class="f-content-desc">Set your doctrinal position, preaching style, and congregation profile once. Every sermon, topic, illustration, and commentary is then tailored to your voice — not a generic pastor's.</p>
+        <ul class="f-list">
+          <li>Supports Reformed, Arminian, Pentecostal, Anglican, and more</li>
+          <li>Expository, topical, narrative, or lectionary preaching styles</li>
+          <li>Congregation demographics shape illustration choices</li>
+          <li>Pulls live from Planning Center if connected</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="feature-split rev reveal">
+      <div>
+        <div class="section-label">Sermon Delivery Coach</div>
+        <h3 class="f-content-title">Get scored on your delivery, not just your content.</h3>
+        <p class="f-content-desc">Upload your audio or record live. The AI transcribes and scores your delivery across six dimensions — so you grow as a preacher every week, not just as a writer.</p>
+        <ul class="f-list">
+          <li>Pace and rhythm analysis</li>
+          <li>Clarity and vocabulary scoring</li>
+          <li>Congregation engagement detection</li>
+          <li>Scripture integration quality</li>
+          <li>Call to action effectiveness</li>
+          <li>Specific improvement tips for next Sunday</li>
+        </ul>
+      </div>
+      <div class="f-visual">
+        <div class="f-visual-title">Delivery Score — Sunday Service</div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Pace: 8.4/10 — Good variation; slow down in closing illustration</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Clarity: 9.1/10 — Excellent vocabulary for your congregation profile</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Scripture Integration: 7.8/10 — Read more directly from the text</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Overall: 8.4/10 — Strong. Altar call could be more direct.</div></div>
+      </div>
+    </div>
+
+    <div class="feature-split reveal">
+      <div class="f-visual">
+        <div class="f-visual-title">Planning Center → Sermon Forge</div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Sunday Morning — April 6 · 9:00 AM</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Series: He Touched the Untouchable</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Scripture: Mark 1:40–45</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">→ Send to Sermon Forge &nbsp;·&nbsp; Build Service Order</div></div>
+      </div>
+      <div>
+        <div class="section-label">Planning Center Integration</div>
+        <h3 class="f-content-title">The AI layer on top of what Planning Center already does.</h3>
+        <p class="f-content-desc">Planning Center is great at scheduling. SermonCraft Pro makes it smarter. Import your service plans, pull your congregation database, and send everything to the AI with one click.</p>
+        <ul class="f-list">
+          <li>OAuth connection — no passwords stored</li>
+          <li>Import service plans → Sermon Forge in one click</li>
+          <li>Pull congregation size, groups, households</li>
+          <li>Send service plans → Service Order Builder</li>
+        </ul>
+      </div>
+    </div>
+
+    <div id="poro" class="feature-split rev reveal">
+      <div>
+        <div class="section-label">AI Pastor Poro</div>
+        <h3 class="f-content-title">A real-time theological advisor in your corner.</h3>
+        <p class="f-content-desc">Poro is your always-available ministry companion. Ask him anything about your text, your sermon, your theology, or your congregation — and get a thoughtful, doctrinally-aware response in seconds. Not a generic chatbot. A pastor's assistant.</p>
+        <ul class="f-list">
+          <li>Knows your doctrinal position and preaching style</li>
+          <li>Answers Hebrew and Greek word questions on the spot</li>
+          <li>Helps you work through difficult passages</li>
+          <li>Suggests sermon angles, illustrations, and applications</li>
+          <li>Available by voice — speak your question, hear the answer</li>
+          <li>Responds in your language — 11 languages supported</li>
+        </ul>
+      </div>
+      <div class="f-visual">
+        <div class="f-visual-title">✝ Ask Poro anything</div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">"What is the meaning of 'katallasso' in 2 Corinthians 5:18?"</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Poro: "Katallasso means to reconcile — to change from enmity to friendship. Paul uses it 6 times in this passage to show reconciliation as both accomplished and proclaimed..."</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">"Give me three illustrations for a sermon on prodigal love"</div></div>
+        <div class="f-visual-row"><div class="f-dot"></div><div class="f-text">Poro: "Here are three illustrations tailored to your congregation profile..."</div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- PLANS -->
+<section id="plans" class="plans-bg">
+  <div class="inner">
+    <div class="section-label" style="color: var(--gold);">Pricing</div>
+    <h2 class="section-title">Start free. Upgrade when ready.</h2>
+    <p class="section-sub">Every paid plan includes a 7 or 14-day free trial. No charge until your trial ends. Cancel anytime.</p>
+    <div class="plans-grid">
+      <div class="plan-card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0 <span>/mo</span></div>
+        <div class="plan-desc">Taste the product. No card needed.</div>
+        <ul class="plan-feats">
+          <li>5 Sermon Forge/mo</li>
+          <li>3 Topic Engine ideas/mo</li>
+          <li>Sermon Calendar</li>
+          <li>No library or exports</li>
+        </ul>
+        <a href="https://app.sermoncraftpro.com" class="plan-btn">Get Started Free</a>
+      </div>
+      <div class="plan-card">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">$14.99 <span>/mo</span></div>
+        <div class="plan-desc">For individual pastors starting out.</div>
+        <ul class="plan-feats">
+          <li>30 Sermons + 10 Deep/mo</li>
+          <li>20 Topics · 15 Word Studies</li>
+          <li>10 Bible Commentaries/mo</li>
+          <li>AI Pastor Poro</li>
+          <li>Library + PDF/DOCX export</li>
+          <li>11 languages</li>
+        </ul>
+        <a href="https://app.sermoncraftpro.com" class="plan-btn">Start Trial</a>
+      </div>
+      <div class="plan-card popular">
+        <div class="plan-badge">Most Popular</div>
+        <div class="plan-name">Growth</div>
+        <div class="plan-price">$29.99 <span>/mo</span></div>
+        <div class="plan-desc">For growing churches and active preachers.</div>
+        <ul class="plan-feats">
+          <li>100 Sermons + 40 Deep/mo</li>
+          <li>60 Topics · 40 Word Studies</li>
+          <li>30 Illustrations/mo</li>
+          <li>Series Planner (10 series/mo)</li>
+          <li>Content Multiplier + Email Devotional</li>
+          <li>Service Order Builder</li>
+          <li>Team Scheduler · 3 seats</li>
+        </ul>
+        <a href="https://app.sermoncraftpro.com" class="plan-btn primary">Start Trial</a>
+      </div>
+      <div class="plan-card">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$49.99 <span>/mo</span></div>
+        <div class="plan-desc">For senior pastors and large ministries.</div>
+        <ul class="plan-feats">
+          <li>300 Sermons + 100 Deep/mo</li>
+          <li>Delivery Coach</li>
+          <li>Planning Center integration</li>
+          <li>Attendance tracking</li>
+          <li>Congregation Intelligence</li>
+          <li>5 team seats</li>
+        </ul>
+        <a href="https://app.sermoncraftpro.com" class="plan-btn">Start Trial</a>
+      </div>
+      <div class="plan-card">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">$99.99 <span>/mo</span></div>
+        <div class="plan-desc">For multi-campus churches and networks.</div>
+        <ul class="plan-feats">
+          <li>Unlimited generations</li>
+          <li>Unlimited team seats</li>
+          <li>Multi-campus management</li>
+          <li>Priority support + onboarding</li>
+          <li>All Pro features</li>
+        </ul>
+        <a href="https://app.sermoncraftpro.com" class="plan-btn">Start Trial</a>
+      </div>
+    </div>
+    <div class="trial-banner reveal">
+      <div>
+        <h3>Not sure which plan fits?</h3>
+        <p>Start with a 7 or 14-day free trial on any paid plan. Full access to every tool. No charge until your trial ends. Cancel inside the app — no emails, no friction.</p>
+      </div>
+      <a href="https://app.sermoncraftpro.com" class="btn-white">Start Free Trial →</a>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section>
+  <div class="inner">
+    <div class="section-label">From Pastors</div>
+    <h2 class="section-title">What ministry leaders are saying.</h2>
+    <p class="section-sub" style="margin-bottom: 40px;">Real feedback from pastors using SermonCraft Pro every week.</p>
+    <div class="testimonials-grid">
+      <div class="testimonial reveal">
+        <div class="t-text">"I used to spend all of Thursday afternoon just getting my sermon started. Now I have a full draft by Thursday morning and spend the rest of the day refining my delivery. It's changed my entire week."</div>
+        <div class="t-author"><div class="t-avatar">M</div><div><div class="t-name">Pastor Marcus T.</div><div class="t-role">Senior Pastor · Atlanta, GA</div></div></div>
+      </div>
+      <div class="testimonial reveal">
+        <div class="t-text">"The Series Planner alone is worth the subscription. I mapped out a 12-week series on the Gospel of John in 20 minutes. The progression and scripture selection were exactly what I would have done — only faster."</div>
+        <div class="t-author"><div class="t-avatar">A</div><div><div class="t-name">Rev. Abigail K.</div><div class="t-role">Lead Pastor · Lagos, Nigeria</div></div></div>
+      </div>
+      <div class="testimonial reveal">
+        <div class="t-text">"The Planning Center integration is exactly what I needed. I see my upcoming services and push them into Sermon Forge with one click. My team uses the Service Order Builder every single week now."</div>
+        <div class="t-author"><div class="t-avatar">D</div><div><div class="t-name">Pastor David O.</div><div class="t-role">Worship Pastor · London, UK</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INTEGRATION -->
+<section id="integration" style="background: var(--ivory);">
+  <div class="inner">
+    <div class="section-label">Integrations</div>
+    <h2 class="section-title">Works with what you already use.</h2>
+    <p class="section-sub" style="margin-bottom: 40px;">Connect your existing tools and make them smarter with AI.</p>
+    <div class="int-card reveal">
+      <div class="pco-logo">Planning<br/>Center</div>
+      <div style="flex: 1;">
+        <h3 style="font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--charcoal); margin-bottom: 10px;">Planning Center + SermonCraft Pro</h3>
+        <p style="font-size: 15px; color: var(--stone); line-height: 1.75; margin-bottom: 20px;">Connect your Planning Center account in one click. Import service plans directly into Sermon Forge. Pull your congregation database into the AI context. Your Planning Center investment just got smarter.</p>
+        <ul class="f-list">
+          <li>Import upcoming service plans → Sermon Forge</li>
+          <li>Send service plans → Service Order Builder</li>
+          <li>Sync congregation data → Congregation Intelligence</li>
+          <li>OAuth — we never see your PCO password</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section style="text-align: center;">
+  <div class="inner" style="max-width: 640px; margin: 0 auto;">
+    <div style="font-size: 52px; margin-bottom: 28px;">✝</div>
+    <h2 style="font-family: var(--font-display); font-size: clamp(36px, 5vw, 58px); font-weight: 900; color: var(--charcoal); line-height: 1.1; margin-bottom: 20px;">Ready to preach better every week?</h2>
+    <p style="font-size: 18px; color: var(--stone); line-height: 1.75; margin-bottom: 44px;">Join thousands of pastors who use SermonCraft Pro to prepare with depth, preach with confidence, and lead their teams with clarity.</p>
+    <a href="https://app.sermoncraftpro.com" class="btn-hero" style="display: inline-block; font-size: 16px; padding: 18px 52px;">Start Free Trial — 7 or 14 Days</a>
+    <p style="margin-top: 18px; font-size: 13px; color: var(--stone-light);">Free account · No credit card required · Cancel anytime</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div style="font-family: var(--font-display); font-size: 18px; font-weight: 700; color: #fff;">✝ SermonCraft Pro</div>
+      <p>The complete AI ministry OS for pastors. Built for the pulpit, not the boardroom.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <a href="#tools">All Tools</a>
+      <a href="#features">Features</a>
+      <a href="#plans">Pricing</a>
+      <a href="#integration">Integrations</a>
+    </div>
+    <div class="footer-col">
+      <h4>Tools</h4>
+      <a href="https://app.sermoncraftpro.com">Sermon Forge</a>
+      <a href="https://app.sermoncraftpro.com">Series Planner</a>
+      <a href="https://app.sermoncraftpro.com">Delivery Coach</a>
+      <a href="https://app.sermoncraftpro.com">Team Scheduler</a>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <a href="/cdn-cgi/l/email-protection#dfb5afb0adb09facbaadb2b0b1bcadbeb9abafadb0f1bcb0b2">Contact</a>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/terms">Terms of Service</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 SermonCraft Pro. All rights reserved.</span>
+    <span>Built for pastors, by faith.</span>
+  </div>
+</footer>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  var reveals = document.querySelectorAll('.reveal');
+  var observer = n

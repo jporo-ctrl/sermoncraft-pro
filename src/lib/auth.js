@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-export async function signUp(email, password, fullName, title) {
+export async function signUp(email, password, fullName, title, language) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -8,6 +8,7 @@ export async function signUp(email, password, fullName, title) {
       data: {
         full_name: fullName,
         title: title || "",
+        language: language || "en",
       },
     },
   });
@@ -16,7 +17,11 @@ export async function signUp(email, password, fullName, title) {
   if (data.user) {
     await supabase
       .from("users")
-      .update({ title: title || "", full_name: fullName })
+      .update({
+        title: title || "",
+        full_name: fullName,
+        language: language || "en",
+      })
       .eq("id", data.user.id);
   }
 
@@ -52,6 +57,13 @@ export async function signInWithApple() {
   });
   if (error) throw error;
   return data;
+}
+
+export async function resetPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: "https://app.sermoncraftpro.com/",
+  });
+  if (error) throw error;
 }
 
 export async function signOut() {

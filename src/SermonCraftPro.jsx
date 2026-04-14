@@ -353,6 +353,8 @@ const PASTOR_NAV = [
   { id: "planning-center", label: "Planning Center", icon: "🔗" },
   { id: "team-scheduler", label: "Team Scheduler", icon: "👥" },
   { id: "referrals", label: "Referrals", icon: "" },
+  { id: "support", label: "Support", icon: "🎧" },
+  { id: "command-center", label: "Command Center", icon: "⚡" },
 ];
 
 const ADMIN_NAV = [
@@ -398,6 +400,14 @@ const PASTOR_NAV_GROUPS = [
   {
     id: "church", label: "Church",
     items: ["congregation", "planning-center", "team-scheduler", "referrals"],
+  },
+  {
+    id: "support", label: "Support",
+    items: ["support"],
+  },
+  {
+    id: "command-center", label: "Command Center",
+    items: ["command-center"],
   },
 ];
 
@@ -7334,6 +7344,428 @@ function SermonDropScreen({ currentUser, language }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── PORO AI SUPPORT WIDGET ──────────────────────────────────────────────────
+function CommandCenterScreen({ user }) {
+  const JOSHUA_EMAIL = "joshuaporo@gmail.com";
+  const [activeTab, setActiveTab] = useState("users");
+  const [users, setUsers] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketReplies, setTicketReplies] = useState([]);
+  const [adminReply, setAdminReply] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [msgTarget, setMsgTarget] = useState(null);
+  const [msgSubject, setMsgSubject] = useState("");
+  const [msgBody, setMsgBody] = useState("");
+  const [sending, setSending] = useState(false);
+  const [msgSent, setMsgSent] = useState(false);
+
+  if (user.email !== JOSHUA_EMAIL) {
+    return (
+      <div style={{ maxWidth: 500, margin: "80px auto", textAlign: "center", fontFamily: FONT_BODY }}>
+        <div style={{ fontSize: 32, marginBottom: 16 }}>🔒</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: CHARCOAL }}>Access Restricted</div>
+        <div style={{ fontSize: 14, color: STONE_LIGHT, marginTop: 8 }}>Command Center is only accessible to SermonCraft Pro administrators.</div>
+      </div>
+    );
+  }
+
+  useEffect(function() { loadAll(); }, []);
+
+  async function loadAll() {
+    const { supabase } = await import("./lib/supabase");
+    const [{ data: usersData }, { data: ticketsData }] = await Promise.all([
+      supabase.from("users").select("*").order("created_at", { ascending: false }),
+      supabase.from("support_tickets").select("*, users(full_name, email)").order("created_at", { ascending: false }),
+    ]);
+    if (usersData) setUsers(usersData);
+    if (ticketsData) setTickets(ticketsData);
+    setLoading(false);
+  }
+
+  async function loadReplies(ticketId) {
+    const { supabase } = await import("./lib/supabase");
+    const { data } = await supabase.from("ticket_replies").select("*").eq("ticket_id", ticketId).order("created_at", { ascending: true });
+    if (data) setTicketReplies(data);
+  }
+
+  async function sendReply() {
+    if (!adminReply || !selectedTicket) return;
+    const { supabase } = await import("./lib/supabase");
+    const { data } = await supabase.from("ticket_replies").insert({
+      ticket_id: selectedTicket.id, message: adminReply, sender: "admin", sender_name: "SermonCraft Pro Support"
+    }).select().single();
+    if (data) { setTicketReplies(function(prev) { return [...prev, data]; }); setAdminReply(""); }
+    await supabase.from("support_tickets").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", selectedTicket.id);
+    const userEmail = selectedTicket.users?.email;
+    if (userEmail) {
+      await fetch("/api/send", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "ticket_reply", to: userEmail, ticketSubject: selectedTicket.subject, message: adminReply }) });
+    }
+  }
+
+  async function sendMessage() {
+    if (!msgSubject || !msgBody || !msgTarget) return;
+    setSending(true);
+    await fetch("/api/send", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "ticket_reply", to: msgTarget.email, ticketSubject: msgSubject, message: msgBody }) });
+    setSending(false); setMsgSent(true);
+    setTimeout(function() { setMsgSent(false); setMsgTarget(null); setMsgSubject(""); setMsgBody(""); }, 2000);
+  }
+
+  function fmt(d) { if (!d) return "—"; return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+  function statusColor(s) { return s === "resolved" ? "#059669" : s === "in_progress" ? "#2F80ED" : "#D97706"; }
+  function statusBg(s) { return s === "resolved" ? "#ECFDF5" : s === "in_progress" ? "#EEF5FF" : "#FEF3C7"; }
+  function planColor(p) { return p === "church" || p === "bible_college" ? GOLD : p === "pastor" ? "#7C3AED" : p === "solo" || p === "student" ? "#2F80ED" : STONE_LIGHT; }
+
+  const PLAN_PRICES = { student: 9, solo: 19, pastor: 49, church: 149, bible_college: 199 };
+  const activePaid = users.filter(function(u) { return u.plan && u.plan !== "free" && u.plan !== "trial"; });
+  const mrr = activePaid.reduce(function(sum, u) { return sum + (PLAN_PRICES[u.plan] || 0); }, 0);
+
+  const TABS = [
+    { id: "users", label: "Users" },
+    { id: "tickets", label: "Support Tickets" },
+    { id: "revenue", label: "Revenue" },
+    { id: "messages", label: "Messages" },
+  ];
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px", fontFamily: FONT_BODY }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 800, color: CHARCOAL, margin: 0 }}>⚡ Command Center</h1>
+        <p style={{ color: STONE_LIGHT, fontSize: 13, margin: "4px 0 0" }}>SermonCraft Pro admin dashboard</p>
+      </div>
+
+      <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "#F5F0E8", borderRadius: 10, padding: 4 }}>
+        {TABS.map(function(tab) {
+          return <button key={tab.id} onClick={function() { setSelectedTicket(null); setActiveTab(tab.id); }}
+            style={{ flex: 1, padding: "8px 0", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: activeTab === tab.id ? 700 : 500,
+              background: activeTab === tab.id ? GOLD : "transparent", color: activeTab === tab.id ? "#fff" : STONE, fontFamily: FONT_BODY }}>{tab.label}</button>;
+        })}
+      </div>
+
+      {loading ? <div style={{ textAlign: "center", padding: 40, color: STONE_LIGHT }}>Loading...</div> : (
+        <>
+          {/* USERS TAB */}
+          {activeTab === "users" && (
+            <div>
+              <div style={{ fontSize: 13, color: STONE_LIGHT, marginBottom: 12 }}>{users.length} total users</div>
+              {users.map(function(u) {
+                return (
+                  <div key={u.id} style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 10, padding: "14px 18px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: CHARCOAL }}>{u.full_name || "—"}</div>
+                      <div style={{ fontSize: 12, color: STONE_LIGHT }}>{u.email} · Joined {fmt(u.created_at)}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#F5F0E8", color: planColor(u.plan) }}>{u.plan || "free"}</span>
+                      <button onClick={function() { setMsgTarget(u); setActiveTab("messages"); }}
+                        style={{ background: "none", border: "1px solid " + BORDER, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", color: STONE, fontFamily: FONT_BODY }}>Message</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* TICKETS TAB */}
+          {activeTab === "tickets" && !selectedTicket && (
+            <div>
+              <div style={{ fontSize: 13, color: STONE_LIGHT, marginBottom: 12 }}>{tickets.length} total tickets</div>
+              {tickets.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: STONE_LIGHT }}>No tickets yet.</div> :
+                tickets.map(function(t) {
+                  return (
+                    <div key={t.id} onClick={async function() { setSelectedTicket(t); await loadReplies(t.id); }}
+                      style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 10, padding: "14px 18px", marginBottom: 8, cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: CHARCOAL, marginBottom: 2 }}>{t.subject}</div>
+                          <div style={{ fontSize: 12, color: STONE_LIGHT }}>{t.users?.full_name || "Unknown"} · {fmt(t.created_at)}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          {t.priority === "urgent" && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#FEE2E2", color: "#DC2626" }}>URGENT</span>}
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: statusBg(t.status), color: statusColor(t.status) }}>{t.status.replace("_", " ")}</span>
+                          <span style={{ fontSize: 12, color: GOLD, fontWeight: 600 }}>View →</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          )}
+
+          {activeTab === "tickets" && selectedTicket && (
+            <div>
+              <button onClick={function() { setSelectedTicket(null); setTicketReplies([]); }}
+                style={{ background: "none", border: "1px solid " + BORDER, borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer", color: STONE, fontFamily: FONT_BODY, marginBottom: 16 }}>← Back to tickets</button>
+              <div style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 12, padding: 24 }}>
+                <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 800, color: CHARCOAL, margin: "0 0 8px" }}>{selectedTicket.subject}</h2>
+                <div style={{ fontSize: 12, color: STONE_LIGHT, marginBottom: 16 }}>From: {selectedTicket.users?.full_name || "Unknown"} · {fmt(selectedTicket.created_at)}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", marginBottom: 20 }}>
+                  {ticketReplies.map(function(r) {
+                    var isAdmin = r.sender === "admin";
+                    return (
+                      <div key={r.id} style={{ display: "flex", justifyContent: isAdmin ? "flex-end" : "flex-start" }}>
+                        <div style={{ maxWidth: "75%", padding: "12px 16px", borderRadius: 12, background: isAdmin ? CHARCOAL : GOLD_PALE, color: isAdmin ? "#fff" : CHARCOAL }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, opacity: 0.7 }}>{r.sender_name} · {fmt(r.created_at?.split("T")[0])}</div>
+                          <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.message}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <textarea value={adminReply} onChange={function(e) { setAdminReply(e.target.value); }}
+                  onKeyDown={function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+                  placeholder="Reply as SermonCraft Pro Support... (Enter to send)" rows={4}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: 10 }} />
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button onClick={sendReply} disabled={!adminReply}
+                    style={{ background: GOLD, color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700, fontSize: 13, cursor: adminReply ? "pointer" : "not-allowed", opacity: adminReply ? 1 : 0.5, fontFamily: FONT_BODY }}>Send Reply</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* REVENUE TAB */}
+          {activeTab === "revenue" && (
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
+                {[
+                  { label: "MRR", value: "$" + mrr.toLocaleString() },
+                  { label: "ARR", value: "$" + (mrr * 12).toLocaleString() },
+                  { label: "Paid Users", value: activePaid.length },
+                ].map(function(stat) {
+                  return (
+                    <div key={stat.label} style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 12, padding: 20, textAlign: "center" }}>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: CHARCOAL, fontFamily: FONT_DISPLAY }}>{stat.value}</div>
+                      <div style={{ fontSize: 12, color: STONE_LIGHT, marginTop: 4 }}>{stat.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {["student", "solo", "pastor", "church", "bible_college"].map(function(plan) {
+                var count = users.filter(function(u) { return u.plan === plan; }).length;
+                var revenue = count * (PLAN_PRICES[plan] || 0);
+                return (
+                  <div key={plan} style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 10, padding: "14px 18px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#F5F0E8", color: planColor(plan) }}>{plan}</span>
+                      <span style={{ fontSize: 14, color: CHARCOAL }}>{count} users</span>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: CHARCOAL }}>${revenue}/mo</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* MESSAGES TAB */}
+          {activeTab === "messages" && (
+            <div>
+              <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: 15, fontWeight: 800, color: CHARCOAL, marginBottom: 16 }}>Send Message to User</h3>
+              {msgSent && <div style={{ background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#059669", marginBottom: 16 }}>Message sent successfully.</div>}
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: STONE, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Recipient</label>
+                <select value={msgTarget?.id || ""} onChange={function(e) { setMsgTarget(users.find(function(u) { return u.id === e.target.value; }) || null); }}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", background: "#fff" }}>
+                  <option value="">Select a user...</option>
+                  {users.map(function(u) { return <option key={u.id} value={u.id}>{u.full_name || u.email} — {u.email}</option>; })}
+                </select>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: STONE, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Subject</label>
+                <input value={msgSubject} onChange={function(e) { setMsgSubject(e.target.value); }} placeholder="Message subject"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: STONE, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Message</label>
+                <textarea value={msgBody} onChange={function(e) { setMsgBody(e.target.value); }} placeholder="Type your message..." rows={6}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={sendMessage} disabled={sending || !msgTarget || !msgSubject || !msgBody}
+                  style={{ background: GOLD, color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FONT_BODY, opacity: sending ? 0.7 : 1 }}>{sending ? "Sending..." : "Send Message"}</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function SupportScreen({ user }) {
+  const [tickets, setTickets] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [replies, setReplies] = useState([]);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [reply, setReply] = useState("");
+  const [priority, setPriority] = useState("normal");
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(function() {
+    loadTickets();
+  }, []);
+
+  async function loadTickets() {
+    const { supabase } = await import("./lib/supabase");
+    const { data } = await supabase.from("support_tickets").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    if (data) setTickets(data);
+    setLoading(false);
+  }
+
+  async function loadReplies(ticketId) {
+    const { supabase } = await import("./lib/supabase");
+    const { data } = await supabase.from("ticket_replies").select("*").eq("ticket_id", ticketId).order("created_at", { ascending: true });
+    if (data) setReplies(data);
+  }
+
+  async function submitTicket() {
+    if (!subject || !message) return;
+    setSubmitting(true);
+    const { supabase } = await import("./lib/supabase");
+    const { data } = await supabase.from("support_tickets").insert({
+      user_id: user.id, subject, message, status: "open", priority
+    }).select().single();
+    if (data) {
+      await supabase.from("ticket_replies").insert({ ticket_id: data.id, message, sender: "user", sender_name: user.name || "Pastor" });
+      setTickets(function(prev) { return [data, ...prev]; });
+      setSubject(""); setMessage(""); setPriority("normal"); setShowNewModal(false);
+      await fetch("/api/send", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "new_ticket", subject, message, priority, userName: user.name || "Pastor", userEmail: user.email }) });
+    }
+    setSubmitting(false);
+  }
+
+  async function sendReply() {
+    if (!reply || !selectedTicket) return;
+    const { supabase } = await import("./lib/supabase");
+    const { data } = await supabase.from("ticket_replies").insert({
+      ticket_id: selectedTicket.id, message: reply, sender: "user", sender_name: user.name || "Pastor"
+    }).select().single();
+    if (data) { setReplies(function(prev) { return [...prev, data]; }); setReply(""); }
+    await supabase.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", selectedTicket.id);
+  }
+
+  function fmt(d) { if (!d) return ""; return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); }
+  function statusColor(s) { return s === "resolved" ? "#059669" : s === "in_progress" ? "#2F80ED" : "#D97706"; }
+  function statusBg(s) { return s === "resolved" ? "#ECFDF5" : s === "in_progress" ? "#EEF5FF" : "#FEF3C7"; }
+
+  return (
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px", fontFamily: FONT_BODY }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontFamily: FONT_DISPLAY, fontSize: 22, fontWeight: 800, color: CHARCOAL, margin: 0 }}>Support</h1>
+          <p style={{ color: STONE_LIGHT, fontSize: 13, margin: "4px 0 0" }}>Get help from the SermonCraft Pro team</p>
+        </div>
+        {!selectedTicket && <button onClick={function() { setShowNewModal(true); }} style={{ background: GOLD, color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FONT_BODY }}>+ New Ticket</button>}
+      </div>
+
+      {selectedTicket ? (
+        <div>
+          <button onClick={function() { setSelectedTicket(null); setReplies([]); }} style={{ background: "none", border: "1px solid " + BORDER, borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer", color: STONE, fontFamily: FONT_BODY, marginBottom: 16 }}>← Back to tickets</button>
+          <div style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 12, padding: 24, marginBottom: 16 }}>
+            <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 800, color: CHARCOAL, margin: "0 0 8px" }}>{selectedTicket.subject}</h2>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: statusBg(selectedTicket.status), color: statusColor(selectedTicket.status) }}>{selectedTicket.status.replace("_", " ")}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: selectedTicket.priority === "urgent" ? "#FEE2E2" : "#F3F4F6", color: selectedTicket.priority === "urgent" ? "#DC2626" : STONE }}>{selectedTicket.priority}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 400, overflowY: "auto", marginBottom: 20 }}>
+              {replies.map(function(r) {
+                var isAdmin = r.sender === "admin";
+                return (
+                  <div key={r.id} style={{ display: "flex", justifyContent: isAdmin ? "flex-start" : "flex-end" }}>
+                    <div style={{ maxWidth: "75%", padding: "12px 16px", borderRadius: 12, background: isAdmin ? CHARCOAL : GOLD_PALE, color: isAdmin ? "#fff" : CHARCOAL }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, opacity: 0.7 }}>{r.sender_name} · {fmt(r.created_at?.split("T")[0])}</div>
+                      <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{r.message}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              {replies.length === 0 && <div style={{ color: STONE_LIGHT, fontSize: 13, textAlign: "center", padding: 20 }}>No replies yet. Our team will respond within 24 hours.</div>}
+            </div>
+            {selectedTicket.status !== "resolved" && (
+              <div>
+                <textarea value={reply} onChange={function(e) { setReply(e.target.value); }}
+                  onKeyDown={function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+                  placeholder="Type your message... (Enter to send, Shift+Enter for new line)" rows={3}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", resize: "vertical", boxSizing: "border-box", marginBottom: 10 }} />
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button onClick={sendReply} disabled={!reply} style={{ background: GOLD, color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700, fontSize: 13, cursor: reply ? "pointer" : "not-allowed", opacity: reply ? 1 : 0.5, fontFamily: FONT_BODY }}>Send Reply</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div>
+          {loading ? <div style={{ color: STONE_LIGHT, textAlign: "center", padding: 40 }}>Loading...</div> :
+            tickets.length === 0 ? (
+              <div style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 12, padding: 40, textAlign: "center" }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>🎧</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: CHARCOAL, marginBottom: 8 }}>No support tickets yet</div>
+                <div style={{ fontSize: 13, color: STONE_LIGHT, marginBottom: 20 }}>Submit a ticket and our team will respond within 24 hours.</div>
+                <button onClick={function() { setShowNewModal(true); }} style={{ background: GOLD, color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FONT_BODY }}>Submit Your First Ticket</button>
+              </div>
+            ) : tickets.map(function(t) {
+              return (
+                <div key={t.id} onClick={async function() { setSelectedTicket(t); await loadReplies(t.id); }}
+                  style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 12, padding: "16px 20px", marginBottom: 10, cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: CHARCOAL, marginBottom: 4 }}>{t.subject}</div>
+                      <div style={{ fontSize: 12, color: STONE_LIGHT }}>{fmt(t.created_at?.split("T")[0])}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      {t.priority === "urgent" && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#FEE2E2", color: "#DC2626" }}>URGENT</span>}
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: statusBg(t.status), color: statusColor(t.status) }}>{t.status.replace("_", " ")}</span>
+                      <span style={{ fontSize: 12, color: GOLD, fontWeight: 600 }}>View →</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          }
+        </div>
+      )}
+
+      {showNewModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(44,36,22,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 32, width: "100%", maxWidth: 500, boxShadow: "0 4px 24px rgba(44,36,22,0.15)" }}>
+            <h2 style={{ fontFamily: FONT_DISPLAY, fontSize: 18, fontWeight: 800, color: CHARCOAL, margin: "0 0 20px" }}>New Support Ticket</h2>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: STONE, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Subject</label>
+              <input value={subject} onChange={function(e) { setSubject(e.target.value); }} placeholder="Brief description of your issue"
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: STONE, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Priority</label>
+              <select value={priority} onChange={function(e) { setPriority(e.target.value); }}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", background: "#fff" }}>
+                <option value="normal">Normal — General question or minor issue</option>
+                <option value="high">High — Affecting daily workflow</option>
+                <option value="urgent">Urgent — Critical issue</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: STONE, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>Describe your issue</label>
+              <textarea value={message} onChange={function(e) { setMessage(e.target.value); }} placeholder="Please provide as much detail as possible..." rows={5}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid " + BORDER, fontSize: 14, color: CHARCOAL, fontFamily: FONT_BODY, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={function() { setShowNewModal(false); }} style={{ background: "none", border: "1px solid " + BORDER, borderRadius: 8, padding: "10px 18px", fontSize: 13, cursor: "pointer", color: STONE, fontFamily: FONT_BODY }}>Cancel</button>
+              <button onClick={submitTicket} disabled={submitting || !subject || !message} style={{ background: GOLD, color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FONT_BODY, opacity: submitting ? 0.7 : 1 }}>{submitting ? "Submitting..." : "Submit Ticket"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 var PORO_SYSTEM_PROMPT = "You are Poro AI \u2014 the friendly, knowledgeable support assistant for SermonCraft Pro, an AI-powered ministry SaaS platform built for pastors and church leaders.\n\nYour personality: warm, pastoral, encouraging, and concise. You speak like someone who understands ministry deeply. You never sound robotic or corporate.\n\n## About SermonCraft Pro\nSermonCraft Pro helps pastors: draft and refine sermons, study the Bible with AI commentary and word studies, manage their team with Team Scheduler and Worship Set Builder, track congregation health, multiply content (devotionals, social posts, emails), connect with Planning Center, preach in 11 languages, and preview sermons with TTS audio.\n\n## Pricing Plans\n- Free \u2014 limited trial\n- Starter \u2014 $25/month\n- Growth \u2014 $79.99/month (adds team features)\n- Pro \u2014 $149.99/month (adds Planning Center, Worship Set Builder)\n- Enterprise \u2014 $249.99/month (full features, multiple seats)\n- Enterprise+ \u2014 $299/month (unlimited seats, white-glove support)\n\n## How to Handle Issues\nAlways try to SOLVE the problem before escalating:\n1. Understand \u2014 ask a clarifying question if vague\n2. Diagnose \u2014 identify the likely cause\n3. Guide \u2014 give clear step-by-step instructions\n4. Confirm \u2014 ask if resolved before offering escalation\n5. Escalate only if it's a confirmed bug, billing problem, or you've exhausted options\n\nCommon fixes:\n- Feature not showing \u2014 check plan tier, explain what plan unlocks it\n- Planning Center not connecting \u2014 Settings \u2192 Integrations \u2192 Connect PCO \u2192 authorize \u2192 return to app\n- Sermon not generating \u2014 refresh, clear cache, try different browser\n- Can't log in \u2014 password reset on login screen, check email for magic link, try incognito\n- Billing question \u2014 Settings \u2192 Billing in app\n- Language not working \u2014 Settings \u2192 Profile \u2192 Language\n- TTS not playing \u2014 check volume, try different browser, disable extensions\n- Team invite not received \u2014 check spam, confirm email, pastor can resend from Team Scheduler\n\n## Escalation (last resort only)\nAfter genuinely attempting to solve: 'I wasn't able to fully resolve this on my end. Our team will personally look into it \u2014 you can reach us at jporo@sermoncraftpro.com and we typically respond within 1\u20134 hours.'\n\nNever make up features or pricing. Keep responses clear and practical.\n\n## Formatting Rules\nThis chat widget renders plain text only. Never use markdown. No asterisks, no bold, no bullet dashes, no emojis, no --- dividers, no # headers. Write in plain conversational sentences. For lists, use simple numbered lines like: 1. First item\n2. Second item. No symbols of any kind.";
 
 function PoroAIWidget() {
@@ -7836,6 +8268,10 @@ export default function SermonCraftPro({ user, profile, church, pendingInvitatio
         return canAccess(currentUser.plan || "free", "emailDevotional")
           ? <EmailDevotionalScreen currentUser={currentUser} library={library} />
           : <PlanGate feature="emailDevotional" onUpgrade={function() { setShowGlobalUpgradeModal(true); }} />;
+      case "support":
+        return <SupportScreen user={currentUser} />;
+      case "command-center":
+        return <CommandCenterScreen user={currentUser} />;
       case "prayer-requests":
         return <PrayerRequestsScreen church={church} user={currentUser} />;
       case "attendance":

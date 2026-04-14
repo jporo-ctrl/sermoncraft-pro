@@ -132,5 +132,77 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── TICKET REPLY EMAIL ─────────────────────────────────────────────────────
+  if (type === "ticket_reply") {
+    const { to, ticketSubject, message } = req.body;
+    if (!to || !message) return res.status(400).json({ error: "Missing required fields" });
+
+    var html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="font-family:Georgia,serif;background:#FDFAF5;margin:0;padding:0">
+      <div style="max-width:540px;margin:40px auto;background:#fff;border:1px solid #E8DCC8;border-radius:12px;overflow:hidden">
+        <div style="background:#2C2416;padding:28px 32px">
+          <div style="font-size:22px;color:#B8860B">✝</div>
+          <div style="font-size:20px;font-weight:700;color:#fff;margin-top:6px">SermonCraft Pro</div>
+          <div style="font-size:13px;color:#A89070;margin-top:4px">Support Team</div>
+        </div>
+        <div style="padding:28px 32px">
+          <h2 style="color:#2C2416;font-size:16px;margin:0 0 8px">New reply to your support ticket</h2>
+          <p style="color:#8B7355;font-size:13px;margin:0 0 20px">Ticket: <strong>${ticketSubject}</strong></p>
+          <div style="background:#FAF7F2;border-left:4px solid #B8860B;padding:16px;border-radius:8px;margin-bottom:24px">
+            <p style="color:#2C2416;font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap">${message}</p>
+          </div>
+          <a href="https://app.sermoncraftpro.com" style="display:inline-block;background:#B8860B;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">Open SermonCraft Pro</a>
+        </div>
+        <div style="padding:16px 32px;border-top:1px solid #E8DCC8;text-align:center">
+          <p style="font-size:11px;color:#A89070;margin:0">SermonCraft Pro · sermoncraftpro.com</p>
+        </div>
+      </div>
+    </body></html>`;
+
+    try {
+      var tr = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: "SermonCraft Pro <noreply@sermoncraftpro.com>", to: [to], subject: "SermonCraft Pro Support: New reply to your ticket", html }),
+      });
+      if (!tr.ok) return res.status(tr.status).json({ error: "Failed to send" });
+      return res.status(200).json({ success: true });
+    } catch(e) { return res.status(500).json({ error: e.message }); }
+  }
+
+  // ── NEW TICKET NOTIFICATION ─────────────────────────────────────────────────
+  if (type === "new_ticket") {
+    const { subject, message, userName, userEmail, priority } = req.body;
+    var html2 = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="font-family:Georgia,serif;background:#FDFAF5;margin:0;padding:0">
+      <div style="max-width:540px;margin:40px auto;background:#fff;border:1px solid #E8DCC8;border-radius:12px;overflow:hidden">
+        <div style="background:#2C2416;padding:28px 32px">
+          <div style="font-size:20px;font-weight:700;color:#fff">New Support Ticket</div>
+          <div style="font-size:13px;color:#A89070;margin-top:4px">SermonCraft Pro</div>
+        </div>
+        <div style="padding:28px 32px">
+          <p style="color:#2C2416;font-size:14px;margin:0 0 8px"><strong>From:</strong> ${userName} (${userEmail})</p>
+          <p style="color:#2C2416;font-size:14px;margin:0 0 8px"><strong>Subject:</strong> ${subject}</p>
+          <p style="color:#2C2416;font-size:14px;margin:0 0 20px"><strong>Priority:</strong> ${priority}</p>
+          <div style="background:#FAF7F2;border-left:4px solid #B8860B;padding:16px;border-radius:8px;margin-bottom:24px">
+            <p style="color:#2C2416;font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap">${message}</p>
+          </div>
+          <a href="https://app.sermoncraftpro.com" style="display:inline-block;background:#B8860B;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;font-family:Georgia,serif">Open SermonCraft Pro</a>
+        </div>
+        <div style="padding:16px 32px;border-top:1px solid #E8DCC8;text-align:center">
+          <p style="font-size:11px;color:#A89070;margin:0">SermonCraft Pro · sermoncraftpro.com</p>
+        </div>
+      </div>
+    </body></html>`;
+
+    try {
+      var nt = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: "SermonCraft Pro <noreply@sermoncraftpro.com>", to: ["joshuaporo@gmail.com"], subject: "New SCP Support Ticket: " + subject, html: html2 }),
+      });
+      if (!nt.ok) return res.status(nt.status).json({ error: "Failed to send" });
+      return res.status(200).json({ success: true });
+    } catch(e) { return res.status(500).json({ error: e.message }); }
+  }
+
   return res.status(400).json({ error: "Unknown email type: " + type });
 }

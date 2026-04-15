@@ -17,12 +17,15 @@ export async function signUp(email, password, fullName, title, language) {
   if (data.user) {
     await supabase
       .from("users")
-      .update({
+      .upsert({
+        id: data.user.id,
+        email: email,
         title: title || "",
         full_name: fullName,
         language: language || "en",
-      })
-      .eq("id", data.user.id);
+        plan: "free",
+        created_at: new Date().toISOString(),
+      }, { onConflict: "id" });
   }
 
   return data;

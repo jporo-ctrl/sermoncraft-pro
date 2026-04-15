@@ -159,17 +159,14 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "'Georgia', serif",
-        fontSize: 16,
-        color: "#8B7355",
-        backgroundColor: "#FDFAF5",
-      }}>
-        Loading...
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backgroundColor: "#FDFAF5", fontFamily: "'Georgia', serif" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>✝</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: "#2C2416", marginBottom: 6 }}>SermonCraft Pro</div>
+        <div style={{ fontSize: 13, color: "#A89070", marginBottom: 28 }}>Loading your ministry workspace...</div>
+        <div style={{ width: 200, height: 4, background: "#E8DCC8", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ width: "60%", height: "100%", background: "#B8860B", borderRadius: 2, animation: "scpLoad 1.2s ease-in-out infinite" }} />
+        </div>
+        <style>{`@keyframes scpLoad { 0% { transform: translateX(-100%) } 100% { transform: translateX(300%) } }`}</style>
       </div>
     );
   }

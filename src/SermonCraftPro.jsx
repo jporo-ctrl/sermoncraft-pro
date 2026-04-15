@@ -1482,7 +1482,7 @@ function UpgradeModal({ onClose, user, profile }) {
     pastor_monthly:       "price_1THx4EB0WpRalfPpPZ354rYw",
     pastor_annual:        "price_1THx4fB0WpRalfPpJVlJB7eg",
     church_monthly:       "price_1TLySWB0WpRalfPp8Fmal2ss",
-    church_annual:        "price_1THx5fB0WpRalfPpSwLgJgIw",
+    church_annual:        "price_1TMKz6B0WpRalfPp7Ahwogjr",
     bible_college_monthly:"price_1THx61B0WpRalfPp3I5dtAg8",
     bible_college_annual: "price_1THx6MB0WpRalfPpgNpNWVda",
   };
@@ -1494,7 +1494,7 @@ function UpgradeModal({ onClose, user, profile }) {
       var base = isLocal ? "https://sermoncraft-pro.vercel.app" : "";
       var userId = user?.id || CURRENT_USER.id || "";
       var email = user?.email || CURRENT_USER.email || "";
-      var planFullKey = planKey + "_" + billing;
+      var planFullKey = planKey + "_monthly";
       var priceId = PRICE_IDS[planFullKey] || "";
       var response = await fetch(base + "/api/create-checkout-session", {
         method: "POST",
@@ -1626,18 +1626,7 @@ function UpgradeModal({ onClose, user, profile }) {
           <button onClick={function() { setShowTrial(true); }} style={{ padding: "10px 24px", border: "2px solid #fff", borderRadius: 8, background: "transparent", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: FONT_BODY, whiteSpace: "nowrap" }}>Start Free Trial</button>
         </div>
 
-        {/* Billing toggle */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-          <div style={{ display: "flex", background: CREAM, borderRadius: 8, padding: 4, border: "1px solid " + BORDER }}>
-            {["monthly", "annual"].map(function(b) {
-              return (
-                <button key={b} onClick={function() { setBilling(b); }} style={{ padding: "6px 20px", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: FONT_BODY, background: billing === b ? GOLD : "transparent", color: billing === b ? "#fff" : STONE, transition: "all 0.15s" }}>
-                  {b === "monthly" ? "Monthly" : "Annual (save 20%)"}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+
 
         {error && <div style={{ background: "#FFF5F5", border: "1px solid #FFC5C5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#C0392B", marginBottom: 16, fontFamily: FONT_BODY }}>{error}</div>}
 
@@ -1651,9 +1640,9 @@ function UpgradeModal({ onClose, user, profile }) {
                 <div style={{ fontWeight: 700, fontSize: 16, color: CHARCOAL, marginBottom: 2, fontFamily: FONT_DISPLAY }}>{plan.name}</div>
                 <div style={{ fontSize: 12, color: STONE, marginBottom: 14, lineHeight: 1.5, fontFamily: FONT_BODY }}>{plan.description}</div>
                 <div style={{ marginBottom: 16 }}>
-                  <span style={{ fontSize: 26, fontWeight: 700, color: CHARCOAL, fontFamily: FONT_BODY }}>{billing === "monthly" ? plan.monthlyPrice : plan.annualMonthly}</span>
+                  <span style={{ fontSize: 26, fontWeight: 700, color: CHARCOAL, fontFamily: FONT_BODY }}>{plan.monthlyPrice}</span>
                   <span style={{ fontSize: 12, color: STONE_LIGHT, fontFamily: FONT_BODY }}>/mo</span>
-                  {billing === "annual" && <div style={{ fontSize: 11, color: STONE_LIGHT, marginTop: 2, fontFamily: FONT_BODY }}>Billed {plan.annualPrice}/year</div>}
+
                 </div>
                 <div style={{ marginBottom: 16 }}>
                   {plan.features.map(function(f, i) {
@@ -7344,6 +7333,133 @@ function SermonDropScreen({ currentUser, language }) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── PORO AI SUPPORT WIDGET ──────────────────────────────────────────────────
+function UsageTab() {
+  const [events, setEvents] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("byFeature");
+  const [selectedScreen, setSelectedScreen] = useState(null);
+
+  useEffect(function() {
+    (async function() {
+      const { supabase } = await import("./lib/supabase");
+      const [{ data: eventsData }, { data: usersData }] = await Promise.all([
+        supabase.from("events").select("screen, user_id, created_at").order("created_at", { ascending: false }).limit(2000),
+        supabase.from("users").select("id, full_name, email, plan"),
+      ]);
+      if (eventsData) setEvents(eventsData);
+      if (usersData) setUsers(usersData);
+      setLoading(false);
+    })();
+  }, []);
+
+  if (loading) return <div style={{ textAlign: "center", padding: 40, color: "#A89070" }}>Loading...</div>;
+
+  const userMap = {};
+  users.forEach(function(u) { userMap[u.id] = u; });
+
+  const screenCounts = {};
+  events.forEach(function(e) { screenCounts[e.screen] = (screenCounts[e.screen] || 0) + 1; });
+  const sortedScreens = Object.entries(screenCounts).sort(function(a, b) { return b[1] - a[1]; });
+  const total = events.length;
+
+  const userActivity = {};
+  events.forEach(function(e) {
+    if (!userActivity[e.user_id]) userActivity[e.user_id] = {};
+    userActivity[e.user_id][e.screen] = (userActivity[e.user_id][e.screen] || 0) + 1;
+  });
+
+  var screenVisitors = [];
+  if (selectedScreen) {
+    var seen = {};
+    events.filter(function(e) { return e.screen === selectedScreen; }).forEach(function(e) {
+    });
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {["byFeature", "byUser"].map(function(v) {
+          return <button key={v} onClick={function() { setView(v); setSelectedScreen(null); }}
+            style={{ padding: "6px 16px", border: "1px solid #E8DCC8", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              background: view === v ? "#B8860B" : "transparent", color: view === v ? "#fff" : "#A89070" }}>
+            {v === "byFeature" ? "By Feature" : "By User"}
+          </button>;
+        })}
+      </div>
+
+      {view === "byFeature" && !selectedScreen && (
+        <div>
+          <div style={{ fontSize: 13, color: "#A89070", marginBottom: 16 }}>{total} total screen visits — click a feature to see who visited</div>
+          {sortedScreens.map(function([screen, count]) {
+            var pct = Math.round((count / total) * 100);
+            return (
+              <div key={screen} onClick={function() { setSelectedScreen(screen); }} style={{ background: "#fff", border: "1px solid #E8DCC8", borderRadius: 10, padding: "12px 18px", marginBottom: 8, cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#2C2416" }}>{screen}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#B8860B" }}>{count} visits ({pct}%)</span>
+                </div>
+                <div style={{ height: 6, background: "#F5F0E8", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: pct + "%", height: "100%", background: "#B8860B", borderRadius: 3 }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {view === "byFeature" && selectedScreen && (
+        <div>
+          <button onClick={function() { setSelectedScreen(null); }} style={{ background: "none", border: "1px solid #E8DCC8", borderRadius: 8, padding: "6px 14px", fontSize: 13, cursor: "pointer", color: "#8B7355", fontFamily: "inherit", marginBottom: 16 }}>← Back</button>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#2C2416", marginBottom: 12 }}>{selectedScreen} — {screenVisitors.length} unique visitors</div>
+          {screenVisitors.length === 0 ? <div style={{ color: "#A89070", fontSize: 13 }}>No visitors yet.</div> :
+            screenVisitors.map(function(uid) {
+              var u = userMap[uid];
+              var visitCount = userActivity[uid]?.[selectedScreen] || 0;
+              return (
+                <div key={uid} style={{ background: "#fff", border: "1px solid #E8DCC8", borderRadius: 10, padding: "12px 18px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#2C2416" }}>{u ? (u.full_name || u.email) : "Unknown"}</div>
+                    <div style={{ fontSize: 11, color: "#A89070" }}>{u?.email} · {u?.plan || "free"}</div>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#B8860B" }}>{visitCount} visits</span>
+                </div>
+              );
+            })
+          }
+        </div>
+      )}
+
+      {view === "byUser" && (
+        <div>
+          <div style={{ fontSize: 13, color: "#A89070", marginBottom: 16 }}>Activity breakdown per user</div>
+          {Object.entries(userActivity).filter(function([uid]) { return uid && uid !== "null" && uid !== "undefined"; }).map(function([uid, screens]) {
+            var u = userMap[uid];
+            var topScreens = Object.entries(screens).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 5);
+            var totalVisits = Object.values(screens).reduce(function(s, n) { return s + n; }, 0);
+            return (
+              <div key={uid} style={{ background: "#fff", border: "1px solid #E8DCC8", borderRadius: 10, padding: "14px 18px", marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#2C2416" }}>{u ? (u.full_name || u.email) : "Unknown"}</div>
+                    <div style={{ fontSize: 11, color: "#A89070" }}>{u?.email} · {u?.plan || "free"}</div>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#B8860B" }}>{totalVisits} total visits</span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {topScreens.map(function([screen, count]) {
+                    return <span key={screen} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 20, background: "#F5F0E8", color: "#8B7355", fontWeight: 600 }}>{screen} ({count})</span>;
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CommandCenterScreen({ user }) {
   const JOSHUA_EMAIL = "joshuaporo@gmail.com";
   const [activeTab, setActiveTab] = useState("users");
@@ -7426,6 +7542,7 @@ function CommandCenterScreen({ user }) {
     { id: "tickets", label: "Support Tickets" },
     { id: "revenue", label: "Revenue" },
     { id: "messages", label: "Messages" },
+    { id: "usage", label: "Usage" },
   ];
 
   return (
@@ -7457,7 +7574,14 @@ function CommandCenterScreen({ user }) {
                       <div style={{ fontSize: 12, color: STONE_LIGHT }}>{u.email} · Joined {fmt(u.created_at)}</div>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "#F5F0E8", color: planColor(u.plan) }}>{u.plan || "free"}</span>
+                      <select defaultValue={u.plan || "free"} onChange={async function(e) {
+                        var newPlan = e.target.value;
+                        const { supabase } = await import("./lib/supabase");
+                        await supabase.from("users").update({ plan: newPlan }).eq("id", u.id);
+                        setUsers(function(prev) { return prev.map(function(x) { return x.id === u.id ? Object.assign({}, x, { plan: newPlan }) : x; }); });
+                      }} style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, background: "#F5F0E8", border: "1px solid " + BORDER, color: planColor(u.plan), fontFamily: FONT_BODY, cursor: "pointer" }}>
+                        {["free","student","solo","pastor","church","bible_college"].map(function(p) { return <option key={p} value={p}>{p}</option>; })}
+                      </select>
                       <button onClick={function() { setMsgTarget(u); setActiveTab("messages"); }}
                         style={{ background: "none", border: "1px solid " + BORDER, borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", color: STONE, fontFamily: FONT_BODY }}>Message</button>
                     </div>
@@ -7557,6 +7681,11 @@ function CommandCenterScreen({ user }) {
                 );
               })}
             </div>
+          )}
+
+          {/* USAGE TAB */}
+          {activeTab === "usage" && (
+            <UsageTab />
           )}
 
           {/* MESSAGES TAB */}
@@ -7886,7 +8015,7 @@ export default function SermonCraftPro({ user, profile, church, pendingInvitatio
   const [showOnboarding, setShowOnboarding] = useState(function() {
     var done = localStorage.getItem("scp_onboarding_" + (user?.id || "")) === "done";
     var hasVoice = !!localStorage.getItem("scp_voice_" + (user?.id || ""));
-    return !done && !hasVoice && !profile?.onboarding_complete;
+    return !done && !hasVoice && !profile?.onboarding_complete && !profile?.church;
   });
 
   const [currentScreen, setCurrentScreenRaw] = useState(function() {
@@ -7899,6 +8028,12 @@ export default function SermonCraftPro({ user, profile, church, pendingInvitatio
   function setCurrentScreen(screen) {
     sessionStorage.setItem("scp_screen", screen);
     setCurrentScreenRaw(screen);
+    (async function() {
+      try {
+        const { supabase } = await import("./lib/supabase");
+        await supabase.from("events").insert({ user_id: currentUser?.id, screen });
+      } catch(e) {}
+    })();
   }
 
   function handleOnboardingComplete(result) {
@@ -8402,20 +8537,7 @@ export default function SermonCraftPro({ user, profile, church, pendingInvitatio
             )}
             {currentUser.plan !== "free" && (
               <button
-                onClick={async function() {
-                  try {
-                    var isLocal = window.location.hostname === "localhost";
-                    var base = isLocal ? "https://sermoncraft-pro.vercel.app" : "";
-                    var res = await fetch(base + "/api/customer-portal", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email: user?.email, returnUrl: window.location.href }),
-                    });
-                    var data = await res.json();
-                    if (data.url) window.location.href = data.url;
-                    else alert(data.error || "Could not open billing portal.");
-                  } catch (e) { alert("Could not open billing portal."); }
-                }}
+                onClick={function() { setShowGlobalUpgradeModal(true); }}
                 style={{ width: "100%", padding: "8px", background: "transparent", border: "1px solid " + BORDER, borderRadius: 8, fontSize: 12, color: STONE, cursor: "pointer", fontFamily: FONT_BODY, marginBottom: 8 }}
               >
                 Manage Subscription

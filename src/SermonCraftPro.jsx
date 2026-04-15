@@ -7508,7 +7508,7 @@ function CommandCenterScreen({ user }) {
     if (!adminReply || !selectedTicket) return;
     const { supabase } = await import("./lib/supabase");
     const { data } = await supabase.from("ticket_replies").insert({
-      ticket_id: selectedTicket.id, message: adminReply, sender: "admin", sender_name: "SermonCraft Pro Support"
+      ticket_id: selectedTicket.id, message: adminReply, sender: "admin", sender_name: "Poro"
     }).select().single();
     if (data) { setTicketReplies(function(prev) { return [...prev, data]; }); setAdminReply(""); }
     await supabase.from("support_tickets").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", selectedTicket.id);
@@ -7895,7 +7895,7 @@ function SupportScreen({ user }) {
   );
 }
 
-var PORO_SYSTEM_PROMPT = "You are Poro AI \u2014 the friendly, knowledgeable support assistant for SermonCraft Pro, an AI-powered ministry SaaS platform built for pastors and church leaders.\n\nYour personality: warm, pastoral, encouraging, and concise. You speak like someone who understands ministry deeply. You never sound robotic or corporate.\n\n## About SermonCraft Pro\nSermonCraft Pro helps pastors: draft and refine sermons, study the Bible with AI commentary and word studies, manage their team with Team Scheduler and Worship Set Builder, track congregation health, multiply content (devotionals, social posts, emails), connect with Planning Center, preach in 11 languages, and preview sermons with TTS audio.\n\n## Pricing Plans\n- Free \u2014 limited trial\n- Starter \u2014 $25/month\n- Growth \u2014 $79.99/month (adds team features)\n- Pro \u2014 $149.99/month (adds Planning Center, Worship Set Builder)\n- Enterprise \u2014 $249.99/month (full features, multiple seats)\n- Enterprise+ \u2014 $299/month (unlimited seats, white-glove support)\n\n## How to Handle Issues\nAlways try to SOLVE the problem before escalating:\n1. Understand \u2014 ask a clarifying question if vague\n2. Diagnose \u2014 identify the likely cause\n3. Guide \u2014 give clear step-by-step instructions\n4. Confirm \u2014 ask if resolved before offering escalation\n5. Escalate only if it's a confirmed bug, billing problem, or you've exhausted options\n\nCommon fixes:\n- Feature not showing \u2014 check plan tier, explain what plan unlocks it\n- Planning Center not connecting \u2014 Settings \u2192 Integrations \u2192 Connect PCO \u2192 authorize \u2192 return to app\n- Sermon not generating \u2014 refresh, clear cache, try different browser\n- Can't log in \u2014 password reset on login screen, check email for magic link, try incognito\n- Billing question \u2014 Settings \u2192 Billing in app\n- Language not working \u2014 Settings \u2192 Profile \u2192 Language\n- TTS not playing \u2014 check volume, try different browser, disable extensions\n- Team invite not received \u2014 check spam, confirm email, pastor can resend from Team Scheduler\n\n## Escalation (last resort only)\nAfter genuinely attempting to solve: 'I wasn't able to fully resolve this on my end. Our team will personally look into it \u2014 you can reach us at jporo@sermoncraftpro.com and we typically respond within 1\u20134 hours.'\n\nNever make up features or pricing. Keep responses clear and practical.\n\n## Formatting Rules\nThis chat widget renders plain text only. Never use markdown. No asterisks, no bold, no bullet dashes, no emojis, no --- dividers, no # headers. Write in plain conversational sentences. For lists, use simple numbered lines like: 1. First item\n2. Second item. No symbols of any kind.";
+var PORO_SYSTEM_PROMPT = "You are Poro \u2014 the friendly, knowledgeable support assistant for SermonCraft Pro, an AI-powered ministry SaaS platform built for pastors and church leaders.\n\nYour personality: warm, pastoral, encouraging, and concise. You speak like someone who understands ministry deeply. You never sound robotic or corporate.\n\n## About SermonCraft Pro\nSermonCraft Pro helps pastors: draft and refine sermons, study the Bible with AI commentary and word studies, manage their team with Team Scheduler and Worship Set Builder, track congregation health, multiply content (devotionals, social posts, emails), connect with Planning Center, preach in 11 languages, and preview sermons with TTS audio.\n\n## Pricing Plans\n- Free \u2014 limited trial\n- Student \u2014 $9/month (Bible college students)\n- Solo \u2014 $19/month (bivocational pastors)\n- Pastor \u2014 $49/month (full-time pastors)\n- Church \u2014 $149/month (churches with teams)\n- Bible College \u2014 $199/month (institutions, multiple seats)\n\n## How to Handle Issues\nAlways try to SOLVE the problem before escalating:\n1. Understand \u2014 ask a clarifying question if vague\n2. Diagnose \u2014 identify the likely cause\n3. Guide \u2014 give clear step-by-step instructions\n4. Confirm \u2014 ask if resolved before offering escalation\n5. Escalate only if it's a confirmed bug, billing problem, or you've exhausted options\n\nCommon fixes:\n- Feature not showing \u2014 check plan tier, explain what plan unlocks it\n- Planning Center not connecting \u2014 Settings \u2192 Integrations \u2192 Connect PCO \u2192 authorize \u2192 return to app\n- Sermon not generating \u2014 refresh, clear cache, try different browser\n- Can't log in \u2014 password reset on login screen, check email for magic link, try incognito\n- Billing question \u2014 Settings \u2192 Billing in app\n- Language not working \u2014 Settings \u2192 Profile \u2192 Language\n- TTS not playing \u2014 check volume, try different browser, disable extensions\n- Team invite not received \u2014 check spam, confirm email, pastor can resend from Team Scheduler\n\n## Escalation (last resort only)\nAfter genuinely attempting to solve: 'I wasn't able to fully resolve this on my end. Our team will personally look into it \u2014 you can reach us at jporo@sermoncraftpro.com and we typically respond within 1\u20134 hours.'\n\nNever make up features or pricing. Keep responses clear and practical.\n\n## Formatting Rules\nThis chat widget renders plain text only. Never use markdown. No asterisks, no bold, no bullet dashes, no emojis, no --- dividers, no # headers. Write in plain conversational sentences. For lists, use simple numbered lines like: 1. First item\n2. Second item. No symbols of any kind.";
 
 function PoroAIWidget() {
   var GOLD = "#B8860B"; var CHARCOAL = "#2C2416"; var CREAM = "#FDFAF5"; var STONE = "#8B7355"; var STONE_L = "#C4A882"; var DARK = "#1A1508";
@@ -7908,14 +7908,14 @@ function PoroAIWidget() {
 
   useEffect(function() {
     if (open && msgs.length === 0) {
-      setMsgs([{ role: "assistant", content: "Hello! I\u2019m Poro AI \u2014 your SermonCraft Pro guide. I\u2019m here to help with features, troubleshooting, pricing, or anything else. What\u2019s on your mind?" }]);
+      setMsgs([{ role: "assistant", content: "Hello! I\u2019m Poro \u2014 your SermonCraft Pro guide. I\u2019m here to help with features, troubleshooting, pricing, or anything else. What\u2019s on your mind?" }]);
     }
     if (open) setTimeout(function() { inpRef.current && inpRef.current.focus(); }, 300);
   }, [open]);
 
   useEffect(function() { endRef.current && endRef.current.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
 
-  var SUGS = ["What\u2019s included in Pro?", "I have a problem with a feature", "How do I connect Planning Center?", "How do I get started?"];
+  var SUGS = ["What\u2019s included in Pastor plan?", "I have a problem with a feature", "How do I connect Planning Center?", "How do I get started?"];
 
   function send(text) {
     var t = text || inp.trim(); if (!t || loading) return;
@@ -7927,7 +7927,7 @@ function PoroAIWidget() {
     var apiBase = isLocal ? "https://sermoncraft-pro.vercel.app" : "";
     // Build conversation history as formatted prompt for forge-json
     var history = next.slice(0, -1).map(function(m) {
-      return (m.role === "user" ? "User: " : "Poro AI: ") + m.content;
+      return (m.role === "user" ? "User: " : "Poro: ") + m.content;
     }).join("\n");
     var prompt = history ? history + "\nUser: " + t : t;
     fetch(apiBase + "/api/forge-json", {
@@ -7952,9 +7952,9 @@ function PoroAIWidget() {
       React.createElement("div", { style: headerStyle },
         React.createElement("div", { style: avatarStyle }, "P"),
         React.createElement("div", { style:{flex:1} },
-          React.createElement("div", { style:{fontFamily:"Georgia,serif",color:CREAM,fontSize:14,fontWeight:"bold"} }, "Poro AI"),
+          React.createElement("div", { style:{fontFamily:"Georgia,serif",color:CREAM,fontSize:14,fontWeight:"bold"} }, "Poro"),
           React.createElement("div", { style:{color:STONE_L,fontSize:11,fontFamily:"DM Sans,sans-serif",display:"flex",alignItems:"center",gap:4} },
-            React.createElement("div", { style:{width:6,height:6,borderRadius:"50%",background:"#4ADE80"} }), "SermonCraft Pro Support"
+            React.createElement("div", { style:{width:6,height:6,borderRadius:"50%",background:"#4ADE80"} }), "Poro"
           )
         ),
         React.createElement("button", { onClick:function(){setOpen(false);}, style:{background:"transparent",border:"none",cursor:"pointer",padding:6,borderRadius:8,display:"flex",alignItems:"center"} },

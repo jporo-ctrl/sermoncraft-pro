@@ -40,7 +40,7 @@ export default async function handler(req, res) {
   if (!prompt) return res.status(400).json({ error: "No prompt provided" });
 
   const model = deep ? "claude-opus-4-5" : "claude-sonnet-4-5";
-  const maxTokens = deep ? 16000 : 14000;
+  const maxTokens = 8000;
 
   try {
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {

@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   const { prompt, sys, deep } = req.body;
   if (!prompt) return res.status(400).json({ error: "No prompt provided" });
 
-  const model = deep ? "claude-opus-4-5" : "claude-sonnet-4-5";
+  const model = deep ? "claude-opus-4-6" : "claude-sonnet-4-6";
   const maxTokens = 8000;
 
   try {

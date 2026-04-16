@@ -2878,7 +2878,7 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
         (voiceContext ? voiceContext + "\n\n" : "") +
         "You are an expert sermon writer with deep theological training and 30 years of preaching experience. " +
         "Write the ENTIRE sermon in " + languageName + ". Do not use any other language. " +
-        "Write complete, well-developed sermons suitable for a 35-45 minute Sunday service. " +
+        "Write a well-developed sermon appropriate for the requested duration. " +
         "Each sermon must be detailed, rich with biblical exposition, illustrations, stories, application points, and pastoral warmth. " +
         "When quoting or referencing scripture, always use the " + preferredBibleVersion + " translation. " +
         "Do not summarize or abbreviate any section. Write every point in full. " +

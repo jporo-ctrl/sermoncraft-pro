@@ -8102,7 +8102,7 @@ export default function SermonCraftPro({ user, profile, church, pendingInvitatio
   }, []);
 
   // ── Voice Profile State ──────────────────────────────────────────────────
-  const [voiceProfile, setVoiceProfile] = useState(null);
+  const [voiceProfile, setVoiceProfile] = useState(function() { try { var stored = localStorage.getItem("scp_voice_" + (user?.id || "")); return stored ? JSON.parse(stored) : null; } catch(e) { return null; } });
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const pendingGenerateRef = useRef(null);
 

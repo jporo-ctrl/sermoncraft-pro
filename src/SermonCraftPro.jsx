@@ -2880,7 +2880,8 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
         "Write the ENTIRE sermon in " + languageName + ". Do not use any other language. " +
         "Write a well-developed sermon appropriate for the requested duration. " +
         "Each sermon must be detailed, rich with biblical exposition, illustrations, stories, application points, and pastoral warmth. " +
-        "When quoting or referencing scripture, always use the " + preferredBibleVersion + " translation.";
+        "When quoting or referencing scripture, always use the " + preferredBibleVersion + " translation. " +
+        "CRITICAL: You MUST complete the entire sermon including conclusion within your response. Be concise — do not over-elaborate any single point.";
       var prompt =
         "Write a complete, manuscript-length sermon suitable for a 60-minute Sunday service.\n" +
         "Output Language: " + languageName + " — write everything in " + languageName + ".\n" +

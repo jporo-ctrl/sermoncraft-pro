@@ -2815,6 +2815,7 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
   const [audience, setAudience] = useState("General Congregation");
   const [bibleVersion, setBibleVersion] = useState("NIV");
   const [mode, setMode] = useState("deep");
+  const [duration, setDuration] = useState("30");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -2927,7 +2928,7 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
       setLoading(false);
       abortControllerRef.current = null;
     }
-  }, [title, scripture, angle, audience, bibleVersion, mode, language, voiceProfile, onSave]);
+  }, [title, scripture, angle, audience, bibleVersion, mode, duration, language, voiceProfile, onSave]);
 
   const handleSave = useCallback(function() {
     if (!output || loading) return;
@@ -3040,6 +3041,9 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
           </select>
           <select style={Object.assign({}, styles.select, { width: 160 })} value={bibleVersion} onChange={function(e) { setBibleVersion(e.target.value); }}>
             {["KJV", "NIV", "ESV", "NKJV", "NLT", "NASB", "AMP", "MSG"].map(function(v) { return <option key={v} value={v}>{v}</option>; })}
+          </select>
+          <select style={Object.assign({}, styles.select, { width: 120 })} value={duration} onChange={function(e) { setDuration(e.target.value); }}>
+            {["20","30","40","50","60"].map(function(d) { return <option key={d} value={d}>{d} min</option>; })}
           </select>
           <select style={Object.assign({}, styles.select, { width: 140 })} value={mode} onChange={function(e) { setMode(e.target.value); }}>
             <option value="fast">Fast Mode</option>
@@ -3214,6 +3218,9 @@ function WordStudyScreen({ setForgePrefill, setCurrentScreen, language, voicePro
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <select style={Object.assign({}, styles.select, { width: 120 })} value={duration} onChange={function(e) { setDuration(e.target.value); }}>
+            {["20","30","40","50","60"].map(function(d) { return <option key={d} value={d}>{d} min</option>; })}
+          </select>
           <select style={Object.assign({}, styles.select, { width: 140 })} value={mode} onChange={function(e) { setMode(e.target.value); }}>
             <option value="fast">Fast Mode</option>
             <option value="deep">Deep Mode</option>
@@ -3338,6 +3345,9 @@ function IllustrationsScreen({ language, voiceProfile, onRequestVoiceProfile, co
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginTop: 16 }}>
+          <select style={Object.assign({}, styles.select, { width: 120 })} value={duration} onChange={function(e) { setDuration(e.target.value); }}>
+            {["20","30","40","50","60"].map(function(d) { return <option key={d} value={d}>{d} min</option>; })}
+          </select>
           <select style={Object.assign({}, styles.select, { width: 140 })} value={mode} onChange={function(e) { setMode(e.target.value); }}>
             <option value="fast">Fast Mode</option>
             <option value="deep">Deep Mode</option>
@@ -3663,6 +3673,9 @@ function SeriesPlannerScreen({ onSaveSeries, setForgePrefill, setCurrentScreen, 
         <div style={{ display: "flex", gap: 12, marginTop: 16, alignItems: "center" }}>
           <select style={Object.assign({}, styles.select, { width: 140 })} value={weeks} onChange={function(e) { setWeeks(e.target.value); }}>
             {["3", "4", "5", "6", "8", "10", "12"].map(function(n) { return <option key={n} value={n}>{n} Weeks</option>; })}
+          </select>
+          <select style={Object.assign({}, styles.select, { width: 120 })} value={duration} onChange={function(e) { setDuration(e.target.value); }}>
+            {["20","30","40","50","60"].map(function(d) { return <option key={d} value={d}>{d} min</option>; })}
           </select>
           <select style={Object.assign({}, styles.select, { width: 140 })} value={mode} onChange={function(e) { setMode(e.target.value); }}>
             <option value="fast">Fast Mode</option>

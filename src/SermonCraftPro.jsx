@@ -2877,27 +2877,40 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
       var sys =
         (voiceContext ? voiceContext + "\n\n" : "") +
         "You are an expert sermon writer with deep theological training and 30 years of preaching experience. " +
-        "Write the ENTIRE sermon in " + languageName + ". Do not use any other language. " +
-        "Write a well-developed sermon appropriate for the requested duration. " +
-        "Each sermon must be detailed, rich with biblical exposition, illustrations, stories, application points, and pastoral warmth. " +
-        "When quoting or referencing scripture, always use the " + preferredBibleVersion + " translation. " +
-        "CRITICAL: You MUST complete the entire sermon including conclusion within your response. Be concise — do not over-elaborate any single point.";
-      var prompt =
-        "Write a complete, manuscript-length sermon suitable for a 60-minute Sunday service.\n" +
-        "Output Language: " + languageName + " — write everything in " + languageName + ".\n" +
+        "Write in " + languageName + " only. " +
+        "Be rich with biblical exposition, illustrations, and pastoral warmth. " +
+        "When quoting scripture, always use the " + preferredBibleVersion + " translation.";
+
+      // PASS 1 — Introduction + 3 Body Points
+      var pass1Prompt =
+        "Write ONLY the introduction and 3 body points (NOT the conclusion) of a sermon for a " + duration + "-minute service.\n" +
+        "Output Language: " + languageName + "\n" +
         "Title: " + (title || "(untitled)") + "\n" +
         "Scripture: " + (scripture || "(none specified)") + "\n" +
         "Bible Version: " + preferredBibleVersion + "\n" +
         "Angle/Focus: " + (angle || "general") + "\n" +
         "Audience: " + audience + "\n\n" +
-        "Requirements:\n" +
-        "1. Write the ENTIRE sermon in " + languageName + ".\n" +
-        "2. Write a full introduction (at least 3-4 paragraphs).\n" +
-        "3. Write exactly 3 main body points each with exposition, illustration, and application.\n" +
-        "4. Write a full conclusion with call to action and closing prayer.\n" +
-        "5. Finish with the exact words: END OF SERMON";
+        "Write: Introduction (2 paragraphs) + Point 1 (exposition + illustration + application) + Point 2 (exposition + illustration + application) + Point 3 (exposition + illustration + application).\n" +
+        "Stop after Point 3. Do NOT write the conclusion yet. End with: [BODY COMPLETE]";
 
-      var result = await callSermonAPI(prompt, sys, mode === "deep", function(accumulated) { setOutput(accumulated); }, abortControllerRef.current.signal);
+      var pass1Result = await callSermonAPI(pass1Prompt, sys, mode === "deep", function(accumulated) { setOutput(accumulated); }, abortControllerRef.current.signal);
+
+      if (!pass1Result || pass1Result.length < 100) throw new Error("Generation failed on pass 1");
+
+      // PASS 2 — Conclusion
+      setOutput(pass1Result + "\n\n[Generating conclusion...]");
+      var pass2Prompt =
+        "Here is a sermon in progress:\n\n" + pass1Result.replace("[BODY COMPLETE]", "").trim() + "\n\n" +
+        "Now write ONLY the conclusion for this sermon. Include: a powerful call to action, an invitation, and a closing prayer. " +
+        "Write in " + languageName + ". Use the " + preferredBibleVersion + " Bible. " +
+        "End with: AMEN.";
+
+      var pass2Result = await callSermonAPI(pass2Prompt, sys, false, function(acc) {
+        setOutput(pass1Result.replace("[BODY COMPLETE]", "").trim() + "\n\n" + acc);
+      }, abortControllerRef.current.signal);
+
+      var result = pass1Result.replace("[BODY COMPLETE]", "").trim() + "\n\n" + (pass2Result || "");
+      setOutput(result);
       incrementUsage(mode);
 
       // Auto-save as draft when generation completes

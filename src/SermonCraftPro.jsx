@@ -2902,7 +2902,9 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
       incrementUsage(mode);
 
       // Auto-save as draft when generation completes
+      console.log("Auto-save check:", result ? result.length : "no result");
       if (result && result.length > 500) {
+        console.log("Auto-saving sermon...");
         var cleanedContent = cleanAIText(result).replace(/\*\*/g, "").replace(/\*/g, "").replace(/END OF SERMON/g, "").trim();
         onSave({
           title: title.trim() || "Untitled Sermon",
@@ -2927,8 +2929,15 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
     } finally {
       setLoading(false);
       abortControllerRef.current = null;
+      // Auto-save whatever was generated if long enough
+      var currentOutput = output;
+      if (currentOutput && currentOutput.length > 500) {
+        console.log("Auto-saving from finally:", currentOutput.length);
+        var cleanedContent = cleanAIText(currentOutput).replace(/\*\*/g, "").replace(/\*/g, "").replace(/END OF SERMON/g, "").trim();
+        onSave({ title: title.trim() || "Untitled Sermon", scripture: scripture.trim(), content: cleanedContent, savedAt: new Date().toLocaleDateString(), tags: [], sourceTool: "sermon-forge", sourceTopic: angle.trim() || title.trim() || "", seriesId: null, seriesTitle: null, seriesWeek: null, status: "draft" });
+      }
     }
-  }, [title, scripture, angle, audience, bibleVersion, mode, duration, language, voiceProfile, onSave]);
+  }, [title, scripture, angle, audience, bibleVersion, mode, duration, language, voiceProfile, onSave, output]);
 
   const handleSave = useCallback(function() {
     if (!output || loading) return;

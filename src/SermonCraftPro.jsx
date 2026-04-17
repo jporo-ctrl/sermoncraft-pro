@@ -2901,7 +2901,7 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
       setOutput(pass1Result + "\n\n[Generating conclusion...]");
       var pass2Prompt =
         "Here is a sermon in progress:\n\n" + pass1Result.replace("[BODY COMPLETE]", "").trim() + "\n\n" +
-        "Now write ONLY the conclusion for this sermon. Include: a powerful call to action, an invitation, and a closing prayer. " +
+        "Now write a BRIEF conclusion (3-4 paragraphs max). Include: a call to action and a one-sentence closing prayer. Be concise. " +
         "Write in " + languageName + ". Use the " + preferredBibleVersion + " Bible. " +
         "End with: AMEN.";
 

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import { PLAN_LIMITS, getPlanLimits, canAccess } from "./lib/plans";
 import { loadUsage, incrementUsage, canUseTool, canUseToolFeature } from "./lib/usage";
 import { LANGUAGES, getLanguageName, getPreferredBibleVersion } from "./lib/translations";
-import { shareSermon } from "./lib/db";
+import { logError, shareSermon } from "./lib/db";
 
 const TRANSLATIONS = {
   en: {
@@ -7574,7 +7574,18 @@ function CommandCenterScreen({ user }) {
     { id: "revenue", label: "Revenue" },
     { id: "messages", label: "Messages" },
     { id: "usage", label: "Usage" },
+    { id: "errors", label: "Errors" },
   ];
+  const [errorLogs, setErrorLogs] = useState([]);
+  const [errorsLoading, setErrorsLoading] = useState(false);
+
+  async function loadErrors() {
+    setErrorsLoading(true);
+    const { supabase } = await import("./lib/supabase");
+    const { data } = await supabase.from("error_logs").select("*").order("created_at", { ascending: false }).limit(200);
+    if (data) setErrorLogs(data);
+    setErrorsLoading(false);
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px", fontFamily: FONT_BODY }}>
@@ -7711,6 +7722,48 @@ function CommandCenterScreen({ user }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {activeTab === "errors" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ fontFamily: FONT_DISPLAY, fontSize: 15, fontWeight: 800, color: CHARCOAL, margin: 0 }}>Error Logs</h3>
+                <button onClick={loadErrors} style={{ background: GOLD, color: "#fff", border: "none", borderRadius: 7, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: FONT_BODY }}>
+                  {errorsLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+              {errorLogs.length === 0
+                ? <div style={{ textAlign: "center", padding: 40, color: STONE_LIGHT }}>{errorsLoading ? "Loading..." : "No errors logged. Click Refresh to load."}</div>
+                : errorLogs.map(function(log) {
+                    return (
+                      <div key={log.id} style={{ background: log.resolved ? "#fff" : "#FEF2F2", border: "1px solid " + (log.resolved ? BORDER : "#FECACA"), borderRadius: 10, padding: "14px 18px", marginBottom: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: log.resolved ? "#ECFDF5" : "#FEE2E2", color: log.resolved ? "#059669" : "#DC2626" }}>
+                                {log.resolved ? "RESOLVED" : "UNRESOLVED"}
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: CHARCOAL }}>{log.action}</span>
+                            </div>
+                            <div style={{ fontSize: 13, color: CHARCOAL, marginBottom: 4 }}>{log.error_message}</div>
+                            {log.error_code && <div style={{ fontSize: 11, color: STONE_LIGHT }}>Code: {log.error_code}</div>}
+                            <div style={{ fontSize: 11, color: STONE_LIGHT, marginTop: 4 }}>{fmt(log.created_at?.split("T")[0])} · User: {log.user_id || "—"}</div>
+                          </div>
+                          {!log.resolved && (
+                            <button onClick={async function() {
+                              const { supabase } = await import("./lib/supabase");
+                              await supabase.from("error_logs").update({ resolved: true }).eq("id", log.id);
+                              setErrorLogs(function(p) { return p.map(function(x) { return x.id === log.id ? Object.assign({}, x, { resolved: true }) : x; }); });
+                            }} style={{ background: "#059669", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", marginLeft: 12, whiteSpace: "nowrap", fontFamily: FONT_BODY }}>
+                              Mark Resolved
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+              }
             </div>
           )}
 

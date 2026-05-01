@@ -1,5 +1,21 @@
 import { supabase } from "./supabase";
 
+export const logError = async ({ userId, action, error, context = {} }) => {
+  try {
+    const { supabase: sb } = await import("./supabase");
+    await sb.from("error_logs").insert({
+      user_id: userId || null,
+      action: action || "unknown",
+      error_message: error?.message || String(error),
+      error_code: error?.code || null,
+      context,
+      created_at: new Date().toISOString(),
+    });
+  } catch (_) {
+    console.error("[logError failed]", _);
+  }
+};
+
 // ─── SERMONS ─────────────────────────────────────────────────────────────────
 
 export async function fetchSermons(userId) {
@@ -79,7 +95,7 @@ export async function insertSermon(userId, sermon) {
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) { await logError({ action: "insert_sermon", error }); throw error; }
   return data;
 }
 
@@ -93,7 +109,7 @@ export async function updateSermon(sermonId, updates) {
       status: updates.status,
     })
     .eq("id", sermonId);
-  if (error) throw error;
+  if (error) { await logError({ action: "update_sermon", error }); throw error; }
 }
 
 export async function deleteSermon(sermonId) {
@@ -101,7 +117,7 @@ export async function deleteSermon(sermonId) {
     .from("sermons")
     .delete()
     .eq("id", sermonId);
-  if (error) throw error;
+  if (error) { await logError({ action: "delete_sermon", error }); throw error; }
 }
 
 // ─── SHARED SERMONS ───────────────────────────────────────────────────────────

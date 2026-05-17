@@ -204,5 +204,22 @@ export default async function handler(req, res) {
     } catch(e) { return res.status(500).json({ error: e.message }); }
   }
 
+
+  // ── INVITATION EMAIL ───────────────────────────────────────────────────────
+  if (type === "invitation") {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+    const { email, churchName, invitedByName } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required." });
+    const { data, error } = await resend.emails.send({
+      from: "SermonCraft Pro <noreply@sermoncraftpro.com>",
+      to: email,
+      subject: "You've been invited to join " + churchName + " on SermonCraft Pro",
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background-color:#FDFAF5;font-family:'Georgia','Times New Roman',serif;"><div style="max-width:560px;margin:40px auto;background:#fff;border:1px solid #E8DCC8;border-radius:16px;overflow:hidden;"><div style="background:#1c1608;padding:32px;text-align:center;"><div style="font-size:36px;margin-bottom:8px;">✝</div><div style="color:#D4A017;font-size:20px;font-weight:700;letter-spacing:0.04em;">SermonCraft Pro</div></div><div style="padding:36px 40px;"><div style="font-size:22px;font-weight:700;color:#2C2416;margin-bottom:12px;">You've been invited!</div><div style="font-size:15px;color:#8B7355;line-height:1.7;margin-bottom:24px;"><strong style="color:#2C2416;">${invitedByName || "A church admin"}</strong> has invited you to join <strong style="color:#2C2416;">${churchName}</strong> on SermonCraft Pro.</div><div style="text-align:center;"><a href="https://sermoncraftpro.com" style="display:inline-block;background:#B8860B;color:#fff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:700;">Accept Invitation</a></div></div></div></body></html>`,
+    });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ success: true, id: data?.id });
+  }
+
   return res.status(400).json({ error: "Unknown email type: " + type });
 }

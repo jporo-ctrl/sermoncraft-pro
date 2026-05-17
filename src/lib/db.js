@@ -349,10 +349,10 @@ export async function sendInvitation(churchId, invitedBy, email, churchName, inv
   const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const base = isLocal ? "https://sermoncraft-pro.vercel.app" : "";
 
-  const emailResponse = await fetch(base + "/api/send-invitation", {
+  const emailResponse = await fetch(base + "/api/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, churchName: churchName || "your church", invitedByName: invitedByName || "A church admin" }),
+    body: JSON.stringify({ type: "invitation", email, churchName: churchName || "your church", invitedByName: invitedByName || "A church admin" }),
   });
   const emailResult = await emailResponse.json();
   console.log("Email API response:", emailResult);

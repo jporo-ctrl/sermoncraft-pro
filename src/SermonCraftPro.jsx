@@ -2881,17 +2881,34 @@ function SermonForgeScreen({ onSave, prefill, language, onMultiply, voiceProfile
         "Be rich with biblical exposition, illustrations, and pastoral warmth. " +
         "When quoting scripture, always use the " + preferredBibleVersion + " translation.";
 
-      // PASS 1 — Introduction + 3 Body Points
+      // PASS 1 — Introduction + Dynamic Body Points
+      // Detect number of points from title or angle
+      var pointCountMatch = ((angle || "") + " " + (title || "")).match(/\b(\d+)\s*(key|point|principle|step|reason|truth|way|pillar|lesson|thing|secret|mark|sign|aspect|element|foundation|characteristic|quality|attribute)/i);
+      var pointCount = pointCountMatch ? Math.min(parseInt(pointCountMatch[1]), 12) : 3;
+      var pointsList = Array.from({length: pointCount}, function(_, i) { return "Point " + (i+1) + " (exposition + illustration + application)"; }).join(" + ");
+
+      // Vary intro style to avoid monotony
+      var introStyles = [
+        "Open with a compelling question or scenario that draws the congregation in immediately.",
+        "Open with a brief vivid story or illustration that sets up the sermon theme.",
+        "Open with a bold declaration or provocative statement about the text.",
+        "Open by acknowledging a struggle or tension your congregation faces, then pivot to Scripture.",
+        "Open with a surprising or counterintuitive insight from the Scripture passage.",
+        "Open with a cultural observation or current event that connects to the biblical text.",
+      ];
+      var introStyle = introStyles[Math.floor(Math.random() * introStyles.length)];
+
       var pass1Prompt =
-        "Write ONLY the introduction and 3 body points (NOT the conclusion) of a sermon for a " + duration + "-minute service.\n" +
+        "Write ONLY the introduction and " + pointCount + " body point" + (pointCount > 1 ? "s" : "") + " (NOT the conclusion) of a sermon for a " + duration + "-minute service.\n" +
         "Output Language: " + languageName + "\n" +
         "Title: " + (title || "(untitled)") + "\n" +
         "Scripture: " + (scripture || "(none specified)") + "\n" +
         "Bible Version: " + preferredBibleVersion + "\n" +
         "Angle/Focus: " + (angle || "general") + "\n" +
         "Audience: " + audience + "\n\n" +
-        "Write: Introduction (2 paragraphs) + Point 1 (exposition + illustration + application) + Point 2 (exposition + illustration + application) + Point 3 (exposition + illustration + application).\n" +
-        "Stop after Point 3. Do NOT write the conclusion yet. End with: [BODY COMPLETE]";
+        "INTRODUCTION STYLE: " + introStyle + "\n\n" +
+        "Write: Introduction (2 paragraphs) + " + pointsList + ".\n" +
+        "Stop after Point " + pointCount + ". Do NOT write the conclusion yet. End with: [BODY COMPLETE]";
 
       var pass1Result = await callSermonAPI(pass1Prompt, sys, mode === "deep", function(accumulated) { setOutput(accumulated); }, abortControllerRef.current.signal);
 

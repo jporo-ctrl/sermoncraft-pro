@@ -252,7 +252,6 @@ function pingAPIs() {
     ? "https://sermoncraft-pro.vercel.app"
     : "";
 
-  fetch(base + "/api/ping").catch(function() {});
   fetch(base + "/api/forge-json", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

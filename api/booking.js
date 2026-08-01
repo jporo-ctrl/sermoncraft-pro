@@ -252,9 +252,31 @@ async function handleBookDemo(req, res) {
 }
 
 // ============================================================
+// CORS — allow the marketing site (different subdomain) to call this API
+// ============================================================
+const ALLOWED_ORIGINS = [
+  'https://sermoncraftpro.com',
+  'https://www.sermoncraftpro.com',
+];
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+}
+
+// ============================================================
 // Router
 // ============================================================
 module.exports = async (req, res) => {
+  applyCors(req, res);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
   if (req.method === 'GET') return handleAvailability(req, res);
   if (req.method === 'POST') return handleBookDemo(req, res);
   return res.status(405).json({ error: 'Method not allowed' });
